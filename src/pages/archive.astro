@@ -1,0 +1,80 @@
+---
+// ============================================================
+//  🗂️ 归档页 (Archive) — 所有文章 + 分类/标签筛选
+//  文章来自 Astro Content Collections，分类和标签由文章元信息汇总。
+//  筛选在浏览器端完成（纯静态也能用），支持 ?category= & ?tag= 直达。
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import PostCard from "../components/PostCard.astro";
+import { getPosts } from "../lib/posts";
+
+const posts = await getPosts();
+---
+<Layout active="archive">
+  <section class="card" style="padding:20px; margin-bottom:24px;">
+    <h1 style="font-size:24px; letter-spacing:2px; color:var(--accent);"><Icon name="folder" size={20} />&nbsp;归档</h1>
+    <p style="margin-top:10px; line-height:1.8; color:var(--text);">
+      全部文章都在这里啦~ 点侧边栏的「分类」或「标签」即可筛选~♡
+    </p>
+  </section>
+
+  <!-- 文章列表 -->
+  <section>
+    {posts.length > 0 ? (
+      <ul class="posts" id="list">
+        {posts.map((p) => (
+          <PostCard post={p} />
+        ))}
+      </ul>
+    ) : (
+      <div class="card" style="padding:34px; text-align:center;">
+        <div style="color:var(--accent);"><Icon name="ghost" size={48} /></div>
+        <p class="empty" style="margin-top:12px;">还没有文章~ 去 src/content/posts/ 添加第一篇吧！</p>
+      </div>
+    )}
+  </section>
+</Layout>
+
+<script is:inline>
+  (function () {
+    // 🗂️ 归档页筛选：按 URL 参数 ?category= / ?tag= 筛选文章列表。
+    //   「侧边栏的分类/标签」点进来会带对应参数；删除中间筛选块后，这里只读参数即可~♡
+    //  💡 关键修复：is:inline 脚本在切页(View Transitions)时【不会重跑】，
+    //     所以要在 astro:page-load 里也执行一次，保证从侧边栏切进来筛选生效~♡
+    function applyFilter() {
+      var list = document.getElementById('list');
+      if (!list) return; // 非归档页没有 #list，直接跳过~♡
+      var params = new URLSearchParams(location.search);
+      var cat = params.get('category') || "";
+      var tag = params.get('tag') || "";
+      var cards = list.querySelectorAll('.post-card');
+      var shown = false;
+      cards.forEach(function (card) {
+        var okCat = !cat || card.getAttribute('data-cat') === cat;
+        var okTag = !tag || (card.getAttribute('data-tags') || '').split(',').indexOf(tag) !== -1;
+        var show = okCat && okTag;
+        card.style.display = show ? '' : 'none';
+        if (show) shown = true;
+      });
+      // 空结果提示（复用原逻辑~♡）
+      var empty = document.getElementById('filter-empty');
+      if (!shown) {
+        if (!empty) {
+          empty = document.createElement('div');
+          empty.id = 'filter-empty';
+          empty.className = 'card';
+          empty.style.cssText = 'padding:28px;text-align:center;margin-top:14px;';
+          empty.innerHTML = '<div style="color:var(--accent);"><svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7v11l2.5-2 2.5 2 2.5-2 2.5 2 2.5-2 2.5 2V9a7 7 0 0 0-7-7z"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/></svg></div><p class="empty" style="margin-top:8px;">这个组合下还没有文章哦~</p>';
+          list.insertAdjacentElement('afterend', empty);
+        }
+      } else if (empty) {
+        empty.remove();
+      }
+    }
+
+    // 首次打开 + 每次切页都应用筛选（修复「切页后标签筛选不生效」~♡）
+    applyFilter();
+    document.addEventListener('astro:page-load', applyFilter);
+  })();
+</script>

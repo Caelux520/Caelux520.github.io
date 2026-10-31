@@ -1,0 +1,47 @@
+---
+// ============================================================
+//  📁 项目 (Projects) — 对应升级 #5
+//  数据在 src/config.ts 的 projects。
+//  「扩展点」：copy 一行 { title, desc, link, icon } 加项目；link 留空无外链~♡
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import { projects } from "../config";
+---
+<Layout active="projects">
+  <section class="card" style="padding:20px; margin-bottom:24px;">
+    <h1 style="font-size:24px; letter-spacing:2px; color:var(--accent);"><Icon name="folder" size={20}/>&nbsp;项目</h1>
+    <p style="margin-top:10px; line-height:1.8; color:var(--text);">
+      折腾过 / 正在折腾的小项目~♡ 想加项目，到 <code style="color:var(--accent);">src/config.ts</code> 的 <b>projects</b> 加一行即可。
+    </p>
+  </section>
+
+  <section>
+    {projects.length > 0 ? (
+      <div class="proj-grid">
+        {projects.map((p) => (
+          <a class="proj card" href={p.link || undefined} target={p.link ? "_blank" : undefined}>
+            <div class="proj-ic">{p.icon}</div>
+            <h3>{p.title}</h3>
+            <p>{p.desc}</p>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="card" style="padding:34px; text-align:center;">
+        <div style="color:var(--accent);"><Icon name="folder" size={48} /></div>
+        <p class="empty" style="margin-top:12px;">项目列表空空的~ 去 config 的 <b>projects</b> 加一条吧~♡</p>
+      </div>
+    )}
+  </section>
+</Layout>
+
+<style>
+  .proj-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:14px; }
+  .proj { display:block; padding: 20px 18px; text-decoration:none !important;
+    transition: transform .2s ease, box-shadow .2s ease; }
+  .proj:hover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(0,0,0,.10); text-decoration:none; }
+  .proj-ic { font-size: 30px; display:block; margin-bottom:10px; }
+  .proj h3 { font-size:16px; color:var(--text-bright); margin-bottom:6px; }
+  .proj p { font-size:13px; color:var(--text-dim); line-height:1.7; margin:0; }
+</style>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Live2D Host</title>
+<!--
+  Live2D iframe 宿主（参考 Mizuki 的做法：widget 跑在 iframe 里，主页面只负责传配置 + 收事件）
+  - 主页面 postMessage({type:'l2d-init', config}) → 这里 createWidget
+  - 模型加载完 → 回传 {type:'l2d-loaded'}，菜单动作 → {type:'l2d-action'}，点模型 → {type:'l2d-tap'}
+  - 依赖同目录的 l2d-widget.min.js（内置 Cubism 2 + Cubism 4 运行时，不用额外引核心）
+-->
+<style>
+  html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: transparent; }
+  body { -webkit-font-smoothing: antialiased; }
+</style>
+</head>
+<body>
+<script src="./l2d-widget.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var widget = null;
+  var currentKey = '';
+  var busyKey = '';
+  var index = 0;
+  var total = 1;
+
+  function post(type, payload) {
+    try {
+      parent.postMessage(Object.assign({ type: type }, payload || {}), '*');
+    } catch (err) { /* ignore */ }
+  }
+
+  function modelList(cfg) {
+    return Array.isArray(cfg.model) ? cfg.model : [cfg.model];
+  }
+
+  // 菜单项：widget 只认 { icon, label, onClick(widget) }，这里把动作翻译成函数
+  function buildMenus(cfg) {
+    var list = modelList(cfg);
+    total = list.length;
+    var items = (cfg.menus && cfg.menus.items) || [];
+    return {
+      align: (cfg.menus && cfg.menus.align) || 'right',
+      items: items
+        .filter(function (item) { return item.action !== 'switch' || total > 1; })
+        .map(function (item) {
+          return {
+            icon: item.icon,
+            label: item.label,
+            onClick: function (instance) {
+              if (item.action === 'sleep') { instance.sleep(); post('l2d-sleep'); return; }
+              if (item.action === 'switch') {
+                index = (index + 1) % total;
+                instance.switchModel(index);
+                post('l2d-model', { index: index });
+                return;
+              }
+              post('l2d-action', { action: item.action });
+            }
+          };
+        })
+    };
+  }
+
+  function create(cfg) {
+    if (typeof L2D_WIDGET === 'undefined' || !L2D_WIDGET.createWidget) {
+      post('l2d-error', { message: 'l2d-widget.min.js 没有加载成功' });
+      return;
+    }
+    try {
+      widget = L2D_WIDGET.createWidget({
+        model: cfg.model,
+        position: cfg.position || 'bottom-left',
+        size: cfg.size || 280,
+        transitionDuration: cfg.transitionDuration || 1200,
+        transitionType: cfg.transitionType || 'slide',
+        primaryColor: cfg.primaryColor || 'rgba(96,165,250,0.9)',
+        menus: buildMenus(cfg)
+      });
+      currentKey = busyKey;
+      busyKey = '';
+
+      if (widget.l2d && typeof widget.l2d.on === 'function') {
+        widget.l2d.on('loaded', function () {
+          var el = document.body.lastElementChild;
+          var box = el ? el.getBoundingClientRect() : null;
+          post('l2d-loaded', {
+            width: box ? box.width : cfg.size,
+            height: box ? box.height : cfg.size
+          });
+        });
+      }
+    } catch (err) {
+      busyKey = '';
+      post('l2d-error', { message: String(err && err.message ? err.message : err) });
+    }
+  }
+
+  function destroy() {
+    if (!widget) return;
+    try { widget.destroy(); } catch (err) { /* ignore */ }
+    widget = null;
+    currentKey = '';
+    index = 0;
+  }
+
+  // 「正在休息」按钮是 widget 自己画的，只能去点它（同源，拿得到 DOM）
+  function wake() {
+    var nodes = document.querySelectorAll('body *');
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      if (node.children.length === 0 && node.textContent && node.textContent.trim() === '正在休息') {
+        node.click();
+        post('l2d-wake');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  window.addEventListener('message', function (event) {
+    var data = event.data || {};
+
+    if (data.type === 'l2d-init') {
+      var key = JSON.stringify(data.config || {});
+      if (widget && currentKey === key) return;
+      if (busyKey === key) return;
+      busyKey = key;
+      destroy();
+      create(data.config || {});
+      return;
+    }
+
+    if (data.type === 'l2d-cmd' && widget) {
+      if (data.cmd === 'sleep') { widget.sleep(); post('l2d-sleep'); }
+      if (data.cmd === 'wake') wake();
+      if (data.cmd === 'switch' && typeof data.index === 'number') {
+        index = ((data.index % total) + total) % total;
+        widget.switchModel(index);
+        post('l2d-model', { index: index });
+      }
+      if (data.cmd === 'destroy') destroy();
+    }
+  });
+
+  // 点模型 → 告诉主页面（用来触发台词 / 以后接 AI）
+  document.addEventListener('pointerdown', function (event) {
+    var el = event.target;
+    if (el && el.tagName === 'CANVAS') {
+      post('l2d-tap', { x: event.clientX, y: event.clientY });
+    }
+  }, true);
+
+  window.addEventListener('resize', function () {
+    post('l2d-resize', { width: window.innerWidth, height: window.innerHeight });
+  });
+})();
+</script>
+</body>
+</html>

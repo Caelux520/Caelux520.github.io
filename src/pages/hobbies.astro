@@ -1,0 +1,37 @@
+---
+// ============================================================
+//  💖 兴趣爱好 — 中间内容区
+//  数据全在 src/config.ts 的 hobbies，加一行就多一张卡。
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import { hobbies } from "../config";
+---
+<Layout active="hobbies">
+  <section class="card" style="padding:20px; margin-bottom:24px;">
+    <h1 style="font-size:24px; letter-spacing:2px; color:var(--accent);"><Icon name="heart" size={20} />&nbsp;我的兴趣爱好</h1>
+    <p style="margin-top:10px; line-height:1.8; color:var(--text);">
+      平时喜欢的东西都在这啦~ 想加新的，到
+      <code style="color:var(--accent);">src/config.ts</code> 的 <b>hobbies</b> 里加一行就行。
+    </p>
+  </section>
+
+  <section class="grid">
+    {hobbies.map((h) => (
+      <div class="card hob">
+        <div class="ic">{h.icon}</div>
+        <h3>{h.title}</h3>
+        <p>{h.desc}</p>
+        <!-- 【扩展点】：想给每个兴趣加图片/链接/详情，在这补标签即可 -->
+      </div>
+    ))}
+  </section>
+</Layout>
+
+<style>
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 16px; }
+  .hob { text-align: center; padding: 24px 16px; }
+  .hob .ic { font-size: 36px; display: block; }
+  .hob h3 { margin: 12px 0 8px; font-size: 16px; color: var(--accent); letter-spacing: 1px; }
+  .hob p { font-size: 13px; color: var(--text-dim); line-height: 1.8; }
+</style>

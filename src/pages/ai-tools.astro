@@ -1,0 +1,45 @@
+---
+// ============================================================
+//  🤖 AI 工具 (AI Tools) — 对应升级 #5
+//  数据在 src/config.ts 的 aiTools。
+//  「扩展点」：copy 一行 { name, desc, link } 加工具~♡
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import { aiTools } from "../config";
+---
+<Layout active="ai-tools">
+  <section class="card" style="padding:20px; margin-bottom:24px;">
+    <h1 style="font-size:24px; letter-spacing:2px; color:var(--accent);"><Icon name="search" size={20}/>&nbsp;AI 工具</h1>
+    <p style="margin-top:10px; line-height:1.8; color:var(--text);">
+      平时会用到的 AI 帮手~♡ 想加工具，到 <code style="color:var(--accent);">src/config.ts</code> 的 <b>aiTools</b> 加一行即可。
+    </p>
+  </section>
+
+  <section>
+    {aiTools.length > 0 ? (
+      <div class="tool-list">
+        {aiTools.map((t) => (
+          <a class="tool card" href={t.link || undefined} target={t.link ? "_blank" : undefined}>
+            <span class="tool-name">{t.name}</span>
+            <span class="tool-desc">{t.desc}</span>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="card" style="padding:34px; text-align:center;">
+        <div style="color:var(--accent);"><Icon name="search" size={48} /></div>
+        <p class="empty" style="margin-top:12px;">AI 工具还没清单~ 去 config 的 <b>aiTools</b> 加一条吧~♡</p>
+      </div>
+    )}
+  </section>
+</Layout>
+
+<style>
+  .tool-list { display:flex; flex-direction:column; gap:12px; }
+  .tool { display:flex; align-items:center; gap:14px; padding: 16px 18px; text-decoration:none !important;
+    transition: transform .2s ease, box-shadow .2s ease; }
+  .tool:hover { transform: translateX(4px); box-shadow: 0 10px 24px rgba(0,0,0,.08); text-decoration:none; }
+  .tool-name { font-size:15px; font-weight:600; color:var(--text-bright); min-width:120px; }
+  .tool-desc { font-size:13px; color:var(--text-dim); line-height:1.7; }
+</style>

@@ -1,0 +1,13 @@
+{
+  // ============================================================
+  //  🌸 TypeScript 配置 (本项目由 Astro 提供类型检查)
+  //  【扩展点】：
+  //   · 想换更严格的规则 → 把 "base" 换成 "strict"（astro/tsconfigs/strict）
+  //   · 以后想跑 `astro check` 查类型错误，直接 `npm run check` ~♡
+  // ============================================================
+  "extends": "astro/tsconfigs/base",
+  "compilerOptions": {
+    // 显式引入 node 类型（[slug].astro 里用了 node:crypto 做文章加密 hash）
+    "types": ["node"]
+  }
+}

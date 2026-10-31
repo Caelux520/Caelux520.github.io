@@ -1,0 +1,53 @@
+---
+// ============================================================
+//  ⏳ 时间线 (Timeline) — 对应升级 #5
+//  数据在 src/config.ts 的 timeline 数组。
+//  「扩展点」：在 config 的 timeline 加一行 → 本页自动多一个时间点~♡
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import { timeline } from "../config";
+---
+<Layout active="timeline">
+  <section class="card" style="padding:20px; margin-bottom:24px;">
+    <h1 style="font-size:24px; letter-spacing:2px; color:var(--accent);"><Icon name="list" size={20}/>&nbsp;时间线</h1>
+    <p style="margin-top:10px; line-height:1.8; color:var(--text);">
+      一路走来的小足迹~♡ 想加时间点，到 <code style="color:var(--accent);">src/config.ts</code> 的 <b>timeline</b> 加一行即可。
+    </p>
+  </section>
+
+  <section>
+    {timeline.length > 0 ? (
+      <div class="tl">
+        {timeline.map((t) => (
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-card card">
+              <div class="tl-date">{t.date}</div>
+              <h3>{t.title}</h3>
+              <p>{t.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div class="card" style="padding:34px; text-align:center;">
+        <div style="color:var(--accent);"><Icon name="list" size={48} /></div>
+        <p class="empty" style="margin-top:12px;">时间线空空的~ 去 config 的 <b>timeline</b> 加一条吧~♡</p>
+      </div>
+    )}
+  </section>
+</Layout>
+
+<style>
+  .tl { position: relative; padding-left: 26px; }
+  .tl::before { content:""; position:absolute; left:8px; top:4px; bottom:4px; width:2px;
+    background: linear-gradient(var(--accent), var(--accent2)); border-radius:2px; }
+  .tl-item { position: relative; margin-bottom: 18px; }
+  .tl-dot { position:absolute; left:-26px; top:18px; width:14px; height:14px; border-radius:50%;
+    background: var(--accent); border:3px solid var(--card-bg); box-shadow:0 0 0 2px var(--accent); }
+  .tl-card { padding: 16px 18px; }
+  .tl-date { font-size:12px; color:var(--accent); font-weight:600; letter-spacing:1px; margin-bottom:6px; }
+  .tl-card h3 { font-size:16px; color:var(--text-bright); margin-bottom:6px; }
+  .tl-card p { font-size:13px; color:var(--text-dim); line-height:1.7; margin:0; }
+</style>

@@ -1,3 +1,7 @@
 node_modules/
 .astro/
 dist/
+
+# 手机端布局对比截图（本地预览用，可随时删）
+shots/
+.reference-mobile.png

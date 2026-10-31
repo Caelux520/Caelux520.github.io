@@ -1,0 +1,42 @@
+---
+// ============================================================
+//  🗂️ 文章卡片组件 (PostCard) — 首页/日志/归档 三处共用的列表卡片
+// ------------------------------------------------------------
+//  ✅ 复用一个组件 = 首页 / 日志 / 归档 三处样式自动一致，改一处全站生效，
+//    符合「留扩展点、好维护」的约定~♡
+//  ✅ 封面图：读每篇文章的 cover 字段——
+//     · 有图  → 显示图片（img，带 lazy 懒加载~♡）
+//     · 没图  → 这个区域完全不显示（不占位）~♡
+//     【扩展点】想给文章配封面：放张图到 public/，再在 Markdown frontmatter 填 cover~♡
+//  用法：<PostCard post={某篇文章对象} />
+//  数据里的分类/标签会自动带上 data-cat / data-tags（归档页筛选就靠它~♡）
+// ============================================================
+import { wordCount } from "../config";
+
+const { post } = Astro.props;
+const cover = post.cover ?? "";          // 封面图路径；没配则封面区域不显示
+const tags = post.tags || [];
+---
+<li
+  class="post-card"
+  data-cat={post.category}
+  data-tags={tags.join(",")}
+>
+  <div class="post-body">
+    <!-- 📝 左侧：标题 + 日期 + 简介 + 元信息 -->
+    <div class="post-main">
+      <a href={`/posts/${post.slug}/`}>{post.title}</a><span class="date">{post.date}</span>
+      <p>{post.desc}</p>
+      <div class="post-meta">
+        <span class="pm-cat">{post.category}</span>
+        {tags.map((t: string) => <span class="pm-tag">#{t}</span>)}
+        <span class="pm-word">{wordCount(post.content)} 字</span>
+      </div>
+    </div>
+
+    <!-- 🖼️ 右侧：封面缩略图（只有配了封面 cover 才显示，没配就不显示~♡） -->
+    {cover ? (
+      <img class="post-cover" src={cover} alt="" loading="lazy" title={`${post.title} 封面`} />
+    ) : null}
+  </div>
+</li>
