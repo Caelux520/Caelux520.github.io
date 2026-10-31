@@ -1,5 +1,6 @@
 ---
 title: 关于二次元站点的小脑洞
+draft: true
 date: 2026-09-25
 desc: 想把这个小破站一点一点装修成理想中的样子。
 category: 技术

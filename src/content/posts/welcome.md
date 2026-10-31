@@ -1,5 +1,6 @@
 ---
 title: 欢迎来到我的部屋
+draft: true
 date: 2026-09-25
 desc: 新主页上线啦！这里是我在互联网上的小小据点。
 category: 随笔

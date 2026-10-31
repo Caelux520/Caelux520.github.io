@@ -1,5 +1,6 @@
 ---
 title: 深夜循环歌单分享
+draft: true
 date: 2026-09-25
 desc: 写代码时候反复听的那几首，安利给同样熬夜的朋友。
 category: 随笔

@@ -1,5 +1,6 @@
 ---
 title: 收集到的可爱壁纸们
+draft: true
 date: 2026-09-25
 desc: 整理一波最近收藏的二次元壁纸，打算陆续放进壁纸墙。
 category: 随笔

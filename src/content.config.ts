@@ -12,6 +12,8 @@ const posts = defineCollection({
     tags: z.array(z.string()).default([]),
     cover: z.string().optional(),
     password: z.string().optional(),
+    // 草稿：true 时不会出现在列表 / 归档 / RSS / 搜索里，也不会生成详情页
+    draft: z.boolean().default(false),
   }),
 });
 

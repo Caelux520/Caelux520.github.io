@@ -1,5 +1,6 @@
 ---
 title: 本地部署 Astro 站点
+draft: true
 date: 2026-09-25
 desc: 从零搭一个 Astro 二次元主页的踩坑笔记。
 category: 技术

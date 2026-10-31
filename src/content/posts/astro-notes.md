@@ -1,5 +1,6 @@
 ---
 title: 用 Astro 做小站的心得
+draft: true
 date: 2026-09-25
 desc: 数据全放一个 config 文件里，改起来真的很省心。
 category: 技术

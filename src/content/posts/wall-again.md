@@ -1,5 +1,6 @@
 ---
 title: 壁纸墙攒了一批新图
+draft: true
 date: 2026-09-25
 desc: 又囤了几张好看的二次元壁纸，等整理好就摆上来。
 category: 随笔

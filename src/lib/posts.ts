@@ -4,6 +4,7 @@ export async function getPosts() {
   const entries = await getCollection("posts");
 
   return entries
+    .filter(({ data }) => !data.draft)
     .map(({ id, data, body }) => ({
       ...data,
       slug: id,

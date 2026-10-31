@@ -1,5 +1,6 @@
 ---
 title: 今天也是二次元浓度满满
+draft: true
 date: 2026-09-25
 desc: 摸鱼刷了一下午的番和设定图，快乐。
 category: 随笔

@@ -48,10 +48,13 @@ const pageUrl = Astro.url.href;
     datePublished: post.date,
     dateModified: post.date,
     url: pageUrl,
-    mainEntityOfPage: pageUrl,
+    mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
     keywords: (post.tags || []).join(","),
-    author: { "@type": "Person", name: site.name, url: "/about/" },
-    publisher: { "@type": "Person", name: site.name },
+    articleSection: post.category,
+    wordCount: words,
+    inLanguage: "zh-CN",
+    author: { "@type": "Person", name: site.name, url: new URL("/about/", Astro.site ?? Astro.url).href },
+    publisher: { "@type": "Person", name: site.name, url: new URL("/", Astro.site ?? Astro.url).href },
   })} />
 
   <!-- ⏳ 阅读进度条（对应优化：阅读沉浸感~♡） -->

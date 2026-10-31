@@ -1,5 +1,6 @@
 ---
 title: 标准图标真好用
+draft: true
 date: 2026-09-25
 desc: 把一堆 emoji 换成了标准 SVG 图标，页面一下专业了不少。
 category: 技术
