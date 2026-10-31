@@ -6,20 +6,9 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
-    "preview": "astro preview",
-    "check": "astro check",
-    "smoke": "node scripts/smoke.mjs"
+    "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/rss": "^4.0.19",
-    "@astrojs/sitemap": "^3.7.4",
-    "astro": "^7.3.2",
-    "markdown-it": "^15.0.2",
-    "markdown-it-container": "^4.0.0"
-  },
-  "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "@types/node": "^26.6.1",
-    "typescript": "^6.0.3"
+    "astro": "^7.3.2"
   }
 }
