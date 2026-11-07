@@ -1,0 +1,217 @@
+---
+// ============================================================
+//  🖼️ 壁纸灯箱 (Wall Lightbox) — 列表页 / 详情页共用
+// ------------------------------------------------------------
+//  用法：在页面里放 <WallLightbox />，然后给任意元素加这四个属性：
+//    data-wall-open          → 点它会打开灯箱
+//    data-wall-full="图片"    → 大图地址（不写就用 href）
+//    data-wall-title="标题"   → 底部说明文字
+//    href="原图"             → 没有 JS / 中键点击时的兜底（新标签打开原图）
+//
+//  打开后支持：Esc 关闭、点空白处关闭、← → 切换上一张/下一张，
+//  计数「3 / 8」按页面上 data-wall-open 的先后顺序算~♡
+//  ClientRouter 切页后会自动重新绑定（见文件末尾）。
+// ============================================================
+---
+<dialog class="wall-lightbox" id="wall-lightbox" aria-label="壁纸大图预览">
+  <button type="button" class="wall-lb-close" data-lb-close aria-label="关闭大图">×</button>
+  <button type="button" class="wall-lb-nav wall-lb-prev" data-lb-prev aria-label="上一张">‹</button>
+  <img alt="" />
+  <button type="button" class="wall-lb-nav wall-lb-next" data-lb-next aria-label="下一张">›</button>
+  <p class="wall-lightbox-caption"></p>
+  <span class="wall-lb-count" aria-hidden="true"></span>
+</dialog>
+
+<script>
+  function setupWallLightbox() {
+    const dialog = document.querySelector<HTMLDialogElement>("#wall-lightbox");
+    if (!dialog || dialog.dataset.ready === "1") return;
+
+    const image = dialog.querySelector("img");
+    const caption = dialog.querySelector(".wall-lightbox-caption");
+    const counter = dialog.querySelector(".wall-lb-count");
+    const closeBtn = dialog.querySelector<HTMLButtonElement>("[data-lb-close]");
+    const prevBtn = dialog.querySelector<HTMLButtonElement>("[data-lb-prev]");
+    const nextBtn = dialog.querySelector<HTMLButtonElement>("[data-lb-next]");
+    if (!image || !caption) return;
+
+    dialog.dataset.ready = "1";
+
+    let openers: HTMLElement[] = [];
+    let index = 0;
+
+    function render() {
+      const opener = openers[index];
+      if (!opener) return;
+      image!.src = opener.dataset.wallFull || opener.getAttribute("href") || "";
+      image!.alt = opener.dataset.wallTitle || "";
+      caption!.textContent = opener.dataset.wallTitle || "";
+      if (counter) counter.textContent = openers.length > 1 ? index + 1 + " / " + openers.length : "";
+      const single = openers.length < 2;
+      if (prevBtn) prevBtn.hidden = single;
+      if (nextBtn) nextBtn.hidden = single;
+    }
+
+    function step(delta: number) {
+      if (openers.length < 2) return;
+      index = (index + delta + openers.length) % openers.length;
+      render();
+    }
+
+    function closeDialog() {
+      if (dialog?.open) dialog.close();
+      document.documentElement.classList.remove("wall-lightbox-open");
+    }
+
+    function open(event: MouseEvent, opener: HTMLElement) {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!dialog || typeof dialog.showModal !== "function") return;
+      event.preventDefault();
+      openers = Array.from(document.querySelectorAll<HTMLElement>("[data-wall-open]"));
+      index = Math.max(0, openers.indexOf(opener));
+      render();
+      dialog.showModal();
+      document.documentElement.classList.add("wall-lightbox-open");
+    }
+
+    // 用事件委托：列表页的卡片按钮不用逐个绑定，切页后也照样好使~♡
+    document.addEventListener("click", function (event) {
+      const target = event.target instanceof Element ? event.target : null;
+      const opener = target ? target.closest<HTMLElement>("[data-wall-open]") : null;
+      if (!opener) return;
+      open(event, opener);
+    });
+
+    if (closeBtn) closeBtn.addEventListener("click", closeDialog);
+    if (prevBtn) prevBtn.addEventListener("click", function () { step(-1); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { step(1); });
+
+    // 点空白处关闭（点在 dialog 本身上才算空白）
+    dialog.addEventListener("click", function (event) {
+      if (event.target === dialog) closeDialog();
+    });
+
+    dialog.addEventListener("close", function () {
+      document.documentElement.classList.remove("wall-lightbox-open");
+      image?.removeAttribute("src");
+    });
+
+    // 键盘：Esc 由 <dialog> 原生处理，这里补左右切换
+    document.addEventListener("keydown", function (event) {
+      if (!dialog?.open) return;
+      if (event.key === "ArrowLeft") { event.preventDefault(); step(-1); }
+      if (event.key === "ArrowRight") { event.preventDefault(); step(1); }
+    });
+  }
+
+  setupWallLightbox();
+  document.addEventListener("astro:page-load", setupWallLightbox);
+</script>
+
+<style>
+  .wall-lightbox {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+  }
+  .wall-lightbox[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wall-lightbox::backdrop {
+    background: rgba(10, 8, 24, .88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .wall-lightbox img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 92vw;
+    max-height: 84vh;
+    border-radius: 12px;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, .5);
+  }
+  .wall-lb-close {
+    position: fixed;
+    top: calc(18px + env(safe-area-inset-top));
+    right: calc(20px + env(safe-area-inset-right));
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, .25);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .1);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .wall-lb-close:hover { background: rgba(255, 255, 255, .2); }
+
+  .wall-lb-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    padding-bottom: 3px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 50%;
+    background: rgba(20, 16, 40, .42);
+    color: #fff;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .wall-lb-nav:hover { background: rgba(255, 255, 255, .2); }
+  .wall-lb-nav[hidden] { display: none; }
+  .wall-lb-prev { left: calc(16px + env(safe-area-inset-left)); }
+  .wall-lb-next { right: calc(16px + env(safe-area-inset-right)); }
+
+  .wall-lightbox-caption {
+    position: fixed;
+    right: 0;
+    bottom: calc(18px + env(safe-area-inset-bottom));
+    left: 0;
+    margin: 0;
+    padding: 0 20px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, .8);
+  }
+  .wall-lb-count {
+    position: fixed;
+    top: calc(24px + env(safe-area-inset-top));
+    left: 24px;
+    z-index: 2;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, .7);
+  }
+
+  :global(html.wall-lightbox-open) { overflow: hidden; }
+
+  @media (max-width: 640px) {
+    .wall-lightbox img { max-width: 94vw; max-height: 78vh; }
+    .wall-lb-nav { width: 38px; height: 38px; font-size: 22px; }
+    .wall-lb-prev { left: 8px; }
+    .wall-lb-next { right: 8px; }
+  }
+</style>

@@ -1,0 +1,98 @@
+---
+// ============================================================
+//  🔗 相关文章 (RelatedPosts) — 文章底部，按标签相似度推荐~♡
+// ------------------------------------------------------------
+//  算法很简单也很够用：
+//    · 共同标签每个 3 分；同分类 +1 分  → 分高的优先
+//    · 同分时新的在前
+//    · 一篇都不相关就不渲染（不硬凑）
+//  【扩展点】想改数量 → 改下面的 LIMIT~♡
+// ============================================================
+import Icon from "./Icon.astro";
+import { getPosts } from "../lib/posts";
+
+interface Props {
+  post: any;
+}
+const { post } = Astro.props;
+const LIMIT = 3;
+
+const myTags = new Set<string>(post.tags || []);
+const all = (await getPosts()).filter((p) => p.slug !== post.slug);
+
+const related = all
+  .map((p) => {
+    const shared = (p.tags || []).filter((t: string) => myTags.has(t)).length;
+    const sameCat = p.category === post.category ? 1 : 0;
+    return { p, score: shared * 3 + sameCat, shared };
+  })
+  .filter((x) => x.score > 0)
+  .sort((a, b) => b.score - a.score || b.p.date.localeCompare(a.p.date))
+  .slice(0, LIMIT);
+---
+{related.length > 0 && (
+  <section class="rel" aria-labelledby="rel-title">
+    <h2 class="rel-title" id="rel-title"><Icon name="link" size={15} />&nbsp;相关文章</h2>
+    <ul class="rel-list">
+      {related.map(({ p, shared }) => (
+        <li class="rel-item">
+          <a class="rel-link" href={`/posts/${p.slug}/`}>{p.title}</a>
+          <span class="rel-meta">
+            {shared > 0 ? <span class="rel-tag">共同的标签 · {shared}</span> : null}
+            <span class="rel-date">{p.date}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+
+<style>
+  .rel {
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--border);
+  }
+  .rel-title {
+    display: flex;
+    align-items: center;
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-bright);
+  }
+  .rel-list { list-style: none; margin: 0; padding: 0; }
+  .rel-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    transition: background .18s ease;
+  }
+  .rel-item:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .rel-link {
+    font-size: 13.5px;
+    color: var(--text);
+    text-decoration: none;
+    line-height: 1.6;
+  }
+  .rel-item:hover .rel-link { color: var(--accent-deep); }
+  .rel-meta { flex: none; display: flex; align-items: center; gap: 8px; }
+  .rel-tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    color: var(--accent-deep);
+    background: color-mix(in srgb, var(--accent-deep) 12%, transparent);
+    white-space: nowrap;
+  }
+  .rel-date { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 560px) {
+    .rel-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .rel-meta { gap: 6px; }
+  }
+</style>

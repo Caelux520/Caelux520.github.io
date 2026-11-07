@@ -1,0 +1,300 @@
+---
+// ============================================================
+//  🖼️ 壁纸详情 (Wall detail) — 参考站「专辑详情」那种版式
+// ------------------------------------------------------------
+//  结构：大图头图（标题/简介/元信息/标签压在图片上）+ 返回胶囊 + 看大图按钮
+//        → 下面一排同分区的壁纸（没有就放全部）
+//  点「看大图」或直接点头图都能开灯箱，← → 可以连着翻~♡
+// ============================================================
+import Layout from "../../layouts/Layout.astro";
+import Icon from "../../components/Icon.astro";
+import WallLightbox from "../../components/WallLightbox.astro";
+import { walls, site, type Wallpaper } from "../../config";
+
+export function getStaticPaths() {
+  return walls.map((wall) => ({
+    params: { slug: wall.slug },
+    props: { wall },
+  }));
+}
+
+interface Props {
+  wall: Wallpaper;
+}
+
+const { wall } = Astro.props;
+const siblings = walls.filter((item) => item.category === wall.category && item.slug !== wall.slug);
+const others = walls.filter((item) => item.slug !== wall.slug && item.category !== wall.category);
+const gallery = siblings.length > 0 ? siblings : others;
+const galleryTitle = siblings.length > 0 ? "同分区的壁纸" : "更多壁纸";
+
+const dimensions = wall.width && wall.height ? wall.width + " × " + wall.height : null;
+const sizeText = wall.bytes ? (wall.bytes / 1024 / 1024).toFixed(2) + " MB" : null;
+const metaParts = [dimensions, wall.category, sizeText].filter(Boolean) as string[];
+const cover = wall.preview ?? wall.large ?? wall.src;
+---
+<Layout
+  active="walls"
+  title={wall.title + " · 壁纸收藏 · " + site.pageTitle}
+  desc={wall.desc ?? "壁纸收藏：" + wall.title}
+  ogImage={wall.preview ?? wall.large ?? wall.src}
+>
+  <article class="wd">
+    <!-- ---------- 头图 ---------- -->
+    <header class="wd-hero">
+      <img class="wd-img" src={cover} alt={wall.title} decoding="async" />
+      <span class="wd-shade" aria-hidden="true"></span>
+
+      <a class="wd-back" href="/walls/"><Icon name="arrow-left" size={13} /> 全部壁纸</a>
+      <button
+        type="button"
+        class="wd-open"
+        data-wall-open
+        data-wall-full={wall.large ?? wall.src}
+        data-wall-title={wall.title}
+        aria-label={"查看 " + wall.title + " 大图"}
+      ><Icon name="expand" size={13} /> 看大图</button>
+
+      <div class="wd-caption">
+        <span class="wd-cat">{wall.category}</span>
+        <h1>{wall.title}</h1>
+        {wall.desc ? <p>{wall.desc}</p> : null}
+        <div class="wd-meta">
+          {metaParts.map((part) => <span>{part}</span>)}
+        </div>
+        {(wall.tags || []).length > 0 ? (
+          <div class="wd-tags">{(wall.tags || []).map((tag) => <span>#{tag}</span>)}</div>
+        ) : null}
+      </div>
+    </header>
+
+    <!-- ---------- 同分区 / 更多 ---------- -->
+    <section class="wd-gallery">
+      <div class="wd-gallery-head">
+        <h2>{galleryTitle}</h2>
+        <a href="/walls/">看全部 <Icon name="arrow-right" size={13} /></a>
+      </div>
+
+      {gallery.length > 0 ? (
+        <div class:list={["wd-masonry", gallery.length === 1 && "wd-masonry--single"]}>
+          {gallery.map((item) => (
+            <a href={"/walls/" + item.slug + "/"} aria-label={"打开 " + item.title}>
+              <img src={item.thumb ?? item.preview ?? item.src} alt={item.title} loading="lazy" decoding="async" />
+              <span class="wd-masonry-title">{item.title}</span>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p class="wd-empty">这里暂时只有这一张，之后加了新的会出现在这里~♡</p>
+      )}
+    </section>
+  </article>
+
+  <!-- 灯箱是公共组件：列表页 / 详情页共用同一套（支持 ← →）~♡ -->
+  <WallLightbox />
+</Layout>
+
+<style>
+  .wd { max-width: 100%; }
+
+  /* ---------- 头图 ---------- */
+  .wd-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: #12101c;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, .12);
+  }
+  .wd-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+  }
+  .wd-shade {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      rgba(9, 7, 20, .9) 0%,
+      rgba(9, 7, 20, .55) 34%,
+      rgba(9, 7, 20, .12) 62%,
+      rgba(9, 7, 20, 0) 82%
+    );
+  }
+
+  .wd-back,
+  .wd-open {
+    position: absolute;
+    top: 14px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    background: rgba(15, 12, 30, .42);
+    color: #fff;
+    font-family: inherit;
+    font-size: 11.5px;
+    text-decoration: none;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: background .2s ease, border-color .2s ease;
+  }
+  .wd-back { left: 14px; }
+  .wd-open { right: 14px; }
+  .wd-back:hover,
+  .wd-open:hover {
+    background: color-mix(in srgb, var(--accent) 62%, rgba(15, 12, 30, .42));
+    border-color: rgba(255, 255, 255, .4);
+    color: #fff;
+    text-decoration: none;
+  }
+
+  .wd-caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    padding: 22px 24px;
+    color: #fff;
+  }
+  .wd-cat {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .16);
+    border: 1px solid rgba(255, 255, 255, .22);
+    font-size: 10px;
+    letter-spacing: 1px;
+    backdrop-filter: blur(6px);
+  }
+  .wd-caption h1 {
+    margin: 10px 0 0;
+    font-size: 27px;
+    letter-spacing: 1.5px;
+    color: #fff;
+    text-shadow: 0 2px 16px rgba(0, 0, 0, .45);
+  }
+  .wd-caption p {
+    margin: 8px 0 0;
+    max-width: 620px;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, .82);
+  }
+  .wd-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, .72);
+    font-variant-numeric: tabular-nums;
+  }
+  .wd-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .wd-tags span {
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    background: rgba(255, 255, 255, .08);
+    font-size: 10px;
+    color: rgba(255, 255, 255, .82);
+  }
+
+  /* ---------- 下方图墙 ---------- */
+  .wd-gallery { margin-top: 24px; }
+  .wd-gallery-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 0 2px;
+  }
+  .wd-gallery-head h2 {
+    margin: 0;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--text-bright);
+  }
+  .wd-gallery-head a {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-decoration: none;
+  }
+  .wd-gallery-head a:hover { color: var(--accent); }
+
+  .wd-masonry {
+    columns: 2;
+    column-gap: 10px;
+  }
+  .wd-masonry a {
+    position: relative;
+    display: block;
+    margin-bottom: 10px;
+    break-inside: avoid;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+  }
+  .wd-masonry img {
+    display: block;
+    width: 100%;
+    height: auto;
+    transition: transform .5s ease;
+  }
+  .wd-masonry a:hover img { transform: scale(1.03); }
+  .wd-masonry-title {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(15, 12, 30, .52);
+    color: #fff;
+    font-size: 10px;
+    backdrop-filter: blur(6px);
+  }
+  .wd-masonry--single { columns: 1; }
+
+  .wd-empty {
+    margin: 0;
+    padding: 22px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+  }
+
+  @media (max-width: 640px) {
+    .wd-hero { border-radius: 14px; }
+    .wd-img { aspect-ratio: 4 / 3; }
+    .wd-caption { padding: 16px 16px 18px; }
+    .wd-caption h1 { font-size: 20px; }
+    .wd-caption p { font-size: 11.5px; -webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    .wd-back, .wd-open { top: 10px; font-size: 10.5px; padding: 6px 10px; }
+    .wd-back { left: 10px; }
+    .wd-open { right: 10px; }
+    .wd-masonry { columns: 2; column-gap: 8px; }
+    .wd-masonry a { margin-bottom: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wd-masonry img, .wd-back, .wd-open { transition: none; }
+  }
+</style>

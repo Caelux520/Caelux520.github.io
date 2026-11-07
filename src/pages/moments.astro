@@ -1,0 +1,293 @@
+---
+// ============================================================
+//  🌸 日常瞬间 (Moments) — "生活里的碎碎念"都放这里
+// ------------------------------------------------------------
+//  和「文章档案」(/archive/) 两个版块并列：
+//    · /moments/  日常瞬间 —— 随笔、生活，轻一点
+//    · /archive/  文章档案 —— 技术、教程这类正式长文
+//  归属规则在 src/config/postGroups.ts（按 category 归类）。
+//
+//  版式：左边日期牌 + 一条时间线，右边是内容卡片，
+//  像翻一条条「瞬间」，和档案页那种密集列表完全是两种味道~♡
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import { getPosts } from "../lib/posts";
+import { groupOfCategory } from "../config/postGroups";
+import { wordCount } from "../config";
+
+const all = await getPosts();
+const posts = all.filter((p) => groupOfCategory(p.category) === "daily");
+const tags = [...new Set(posts.flatMap((p) => p.tags || []))];
+const totalWords = posts.reduce((sum, p) => sum + wordCount(p.content || ""), 0);
+---
+<Layout active="moments" title={"日常瞬间 · いんしゅん の部屋"}>
+  <!-- ---------- 页头 ---------- -->
+  <section class="card mo-hero">
+    <div class="mo-hero-main">
+      <span class="mo-kicker"><Icon name="sakura" size={14} /> MOMENTS · 日常瞬间</span>
+      <h1>日常瞬间</h1>
+      <p>今天看了什么、去了哪里、忽然想到的一句话，都丢在这里。正式一点的文章在对面：<a href="/archive/">文章档案</a>~♡</p>
+    </div>
+    <div class="mo-figures" aria-hidden="true">
+      <span class="mo-figure"><b>{posts.length}</b><em>条瞬间</em></span>
+      <span class="mo-figure"><b>{tags.length}</b><em>个标签</em></span>
+      <span class="mo-figure"><b>{totalWords}</b><em>总字数</em></span>
+    </div>
+  </section>
+
+  <!-- ---------- 时间线 ---------- -->
+  {posts.length > 0 ? (
+    <ol class="mo-list">
+      {posts.map((p) => (
+        <li class="mo-item" data-cat={p.category} data-tags={(p.tags || []).join(",")}>
+          <time class="mo-date" datetime={p.date}>
+            <b>{String(p.date).slice(5).replace("-", "/")}</b>
+            <em>{String(p.date).slice(0, 4)}</em>
+          </time>
+          <article class="card mo-card">
+            <a class="mo-title" href={"/posts/" + p.slug + "/"}>{p.title}</a>
+            <p class="mo-desc">{p.desc}</p>
+            {p.cover ? (
+              <a class="mo-cover" href={"/posts/" + p.slug + "/"} tabindex="-1" aria-hidden="true">
+                <img src={p.cover} alt="" loading="lazy" decoding="async" />
+              </a>
+            ) : null}
+            <div class="mo-meta">
+              <span class="mo-chip">{p.category}</span>
+              {(p.tags || []).map((t: string) => <span class="mo-tag">#{t}</span>)}
+              <span class="mo-words">{wordCount(p.content || "")} 字</span>
+            </div>
+          </article>
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <div class="card" style="padding:34px; text-align:center;">
+      <div style="color:var(--daily-2);"><Icon name="sakura" size={44} /></div>
+      <p class="empty" style="margin-top:12px;">
+        还没有瞬间~ 去 <code style="color:var(--accent);">src/content/posts/</code> 写一篇，
+        <code style="color:var(--accent);">category</code> 填「日常」就会出现在这里~♡
+      </p>
+    </div>
+  )}
+
+  <p class="mo-empty" id="mo-empty" hidden>没有找到符合的瞬间，换个条件试试？~♡</p>
+
+</Layout>
+
+<style>
+  /* ---------- 页头 ---------- */
+  .mo-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 24px;
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .mo-hero::before {
+    content: "";
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -90px;
+    top: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--daily-2) 20%, transparent), transparent 68%);
+    pointer-events: none;
+  }
+  .mo-hero-main { position: relative; z-index: 1; }
+  .mo-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    color: var(--daily-2);
+  }
+  .mo-hero h1 {
+    margin: 9px 0 0;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--daily-2);
+  }
+  .mo-hero p {
+    margin: 10px 0 0;
+    max-width: 520px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+  .mo-hero p a { color: var(--tech-1); font-weight: 600; }
+  .mo-figures {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 9px;
+    flex: none;
+  }
+  .mo-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 62px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--card-bg) 78%, transparent);
+  }
+  .mo-figure b { font-size: 17px; line-height: 1.2; color: var(--daily-2); }
+  .mo-figure em { font-size: 10px; font-style: normal; letter-spacing: 1px; color: var(--text-dim); }
+
+  /* ---------- 时间线 ---------- */
+  .mo-list {
+    list-style: none;
+    position: relative;
+    padding-left: 0;
+  }
+  .mo-item {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding-bottom: 14px;
+  }
+  .mo-item[hidden] { display: none; }
+  .mo-empty {
+    margin: 6px 0 16px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .mo-date {
+    flex: none;
+    width: 56px;
+    height: fit-content;
+    padding: 7px 4px 6px;
+    border-radius: 11px;
+    text-align: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--daily-1), var(--daily-2));
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--daily-2) 28%, transparent);
+    position: relative;
+    z-index: 1;
+  }
+  .mo-date b { display: block; font-size: 12.5px; letter-spacing: .5px; }
+  .mo-date em { display: block; font-style: normal; font-size: 9.5px; opacity: .8; margin-top: 1px; }
+
+  .mo-card {
+    flex: 1;
+    min-width: 0;
+    padding: 15px 17px;
+    transition: transform .2s ease, border-color .2s ease;
+  }
+  .mo-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--daily-2) 40%, var(--border)); }
+
+  .mo-title {
+    display: inline-block;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-bright);
+    text-decoration: none;
+    line-height: 1.5;
+  }
+  .mo-title:hover { color: var(--daily-2); text-decoration: none; }
+  .mo-desc {
+    margin-top: 6px;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+  .mo-cover {
+    display: block;
+    margin-top: 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .mo-cover img {
+    display: block;
+    width: 100%;
+    max-height: 260px;
+    object-fit: cover;
+    transition: transform .4s ease;
+  }
+  .mo-card:hover .mo-cover img { transform: scale(1.02); }
+
+  .mo-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 11px;
+  }
+  .mo-chip {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--daily-1), var(--daily-2));
+    color: #fff;
+    font-size: 10px;
+    letter-spacing: .5px;
+  }
+  .mo-tag {
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--daily-2) 28%, transparent);
+    background: color-mix(in srgb, var(--daily-2) 10%, transparent);
+    color: var(--daily-2);
+    font-size: 10px;
+  }
+  .mo-words { margin-left: auto; font-size: 10.5px; color: var(--text-dim); }
+
+  @media (max-width: 640px) {
+    .mo-hero { flex-direction: column; align-items: flex-start; padding: 20px; }
+    .mo-hero h1 { font-size: 22px; }
+    .mo-figures { width: 100%; }
+    .mo-figure { flex: 1; min-width: 0; }
+    .mo-item { gap: 10px; }
+    .mo-list::before { left: 23px; }
+    .mo-date { width: 48px; padding: 6px 2px; }
+    .mo-date b { font-size: 11.5px; }
+    .mo-card { padding: 13px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mo-card, .mo-cover img, .mo-cross { transition: none; }
+  }
+</style>
+
+<script>
+  // 🌸 侧栏点分类 / 标签会带着 ?category= / ?tag= 跳到这里，只保留对得上的瞬间~♡
+  function setupMomentFilter() {
+    const list = document.querySelector<HTMLElement>(".mo-list");
+    const empty = document.getElementById("mo-empty");
+    if (!list) return;
+
+    const params = new URLSearchParams(location.search);
+    const cat = params.get("category") || "";
+    const tag = params.get("tag") || "";
+    const items = Array.from(list.querySelectorAll<HTMLElement>(".mo-item"));
+
+    if (!cat && !tag) {
+      items.forEach((item) => (item.hidden = false));
+      if (empty) empty.hidden = true;
+      return;
+    }
+
+    let shown = 0;
+    items.forEach((item) => {
+      const okCat = !cat || item.getAttribute("data-cat") === cat;
+      const okTag = !tag || (item.getAttribute("data-tags") || "").split(",").indexOf(tag) !== -1;
+      const show = okCat && okTag;
+      item.hidden = !show;
+      if (show) shown++;
+    });
+    if (empty) empty.hidden = shown !== 0;
+  }
+
+  setupMomentFilter();
+  document.addEventListener("astro:page-load", setupMomentFilter);
+</script>

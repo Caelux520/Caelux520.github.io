@@ -1,0 +1,52 @@
+---
+// ============================================================
+//  🤝 友链 (Friends) — 对应升级 #5
+//  数据在 src/config.ts 的 friends。
+//  「扩展点」：copy 一行 { name, desc, link, avatar? } 加友链；avatar 放 public 后填路径~♡
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import { friends } from "../config";
+---
+<Layout active="friends">
+  <section class="card" style="padding:20px; margin-bottom:24px;">
+    <h1 style="font-size:24px; letter-spacing:2px; color:var(--accent);"><Icon name="user" size={20}/>&nbsp;友链</h1>
+    <p style="margin-top:10px; line-height:1.8; color:var(--text);">
+      有好感的小站伙伴~♡ 
+    </p>
+  </section>
+
+  <section>
+    {friends.length > 0 ? (
+      <div class="friend-grid">
+        {friends.map((f) => (
+          <a class="friend card" href={f.link || undefined} target={f.link ? "_blank" : undefined}>
+            {f.avatar ? <img class="f-avatar" src={f.avatar} alt={f.name} /> : <div class="f-fallback"><Icon name="user" size={26}/></div>}
+            <div class="f-info">
+              <span class="f-name">{f.name}</span>
+              <span class="f-desc">{f.desc}</span>
+            </div>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="card" style="padding:34px; text-align:center;">
+        <div style="color:var(--accent);"><Icon name="user" size={48} /></div>
+        <p class="empty" style="margin-top:12px;">友链空空的~ 去 config 的 <b>friends</b> 加一位吧~♡</p>
+      </div>
+    )}
+  </section>
+</Layout>
+
+<style>
+  .friend-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:14px; }
+  .friend { display:flex; align-items:center; gap:14px; padding: 16px 18px; text-decoration:none !important;
+    transition: transform .2s ease, box-shadow .2s ease; }
+  .friend:hover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(0,0,0,.08); text-decoration:none; }
+  .f-avatar { width:52px; height:52px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); flex:none; }
+  .f-fallback { width:52px; height:52px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#fff; }
+  .f-info { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .f-name { font-size:15px; font-weight:600; color:var(--text-bright); }
+  .f-desc { font-size:12px; color:var(--text-dim); line-height:1.6; }
+</style>

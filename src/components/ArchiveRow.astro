@@ -1,0 +1,98 @@
+---
+// ============================================================
+//  🗂️ 归档页的一行（日期 · 分类 · 标题 · 标签）— ArchiveRow
+// ------------------------------------------------------------
+//  按年份 / 按分类 / 按标签 三种分组里都用这同一行，
+//  保证三种视图的行长得一模一样，只是分组不同~♡
+//  data-cat / data-tags 供侧栏的 ?category= / ?tag= 筛选使用。
+// ============================================================
+import { groupOfCategory } from "../config/postGroups";
+
+const { post, showYear = true } = Astro.props;
+const group = groupOfCategory(post.category);
+const monthDay = String(post.date).slice(5); // 2026-09-25 → 09-25
+const year = String(post.date).slice(0, 4);
+---
+<li class="arc-row" data-cat={post.category} data-tags={(post.tags || []).join(",")}>
+  <span class="arc-date"><b>{monthDay}</b>{showYear ? <em>{year}</em> : null}</span>
+  <span class:list={["arc-cat", "arc-cat--" + group]}>{post.category}</span>
+  <a class="arc-title" href={"/posts/" + post.slug + "/"}>{post.title}</a>
+  <span class="arc-tags">
+    {(post.tags || []).slice(0, 3).map((t: string) => <i>#{t}</i>)}
+  </span>
+</li>
+
+<style>
+  .arc-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 8px;
+    border-radius: 9px;
+    list-style: none;
+    transition: background .18s ease;
+  }
+  .arc-row:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+
+  .arc-date {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    width: 84px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .arc-date b { font-weight: 600; color: var(--text); }
+  .arc-date em { font-style: normal; font-size: 10px; opacity: .6; }
+
+  .arc-cat {
+    flex: none;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 10.5px;
+    letter-spacing: .5px;
+    white-space: nowrap;
+  }
+  .arc-cat--daily { background: linear-gradient(135deg, var(--daily-1), var(--daily-2)); }
+  .arc-cat--tech { background: linear-gradient(135deg, var(--tech-1), var(--tech-2)); }
+
+  .arc-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13.5px;
+    color: var(--text-bright);
+    text-decoration: none;
+  }
+  .arc-title:hover { color: var(--accent); text-decoration: none; }
+
+  .arc-tags {
+    flex: none;
+    display: flex;
+    gap: 6px;
+    max-width: 40%;
+    overflow: hidden;
+  }
+  .arc-tags i {
+    font-style: normal;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .arc-row { flex-wrap: wrap; gap: 6px 8px; padding: 10px 6px; }
+    .arc-date { width: auto; order: 1; }
+    .arc-cat { order: 2; }
+    .arc-title { order: 3; flex-basis: 100%; white-space: normal; font-size: 13px; }
+    .arc-tags { order: 4; max-width: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .arc-row { transition: none; }
+  }
+</style>

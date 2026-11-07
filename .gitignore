@@ -1,3 +1,10 @@
 node_modules/
 .astro/
 dist/
+
+# 手机端布局对比截图（本地预览用，可随时删）
+shots/
+.reference-mobile.png
+
+# 看板娘的原始素材包（186MB，含 PSD，只作本地参考，别提交）
+DeepSeek免费公皮/

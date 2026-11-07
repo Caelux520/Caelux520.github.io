@@ -1,56 +1,186 @@
 ---
-// 这里可以写前端 JavaScript 或导入组件，现在先留空
+// ============================================================
+//  🏠 首页 (Home) — 中间内容区
+//  欢迎横幅（带打字机流式输出~♡）+ 最新文章预览。
+//  数据全在 src/config.ts。
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import PostCard from "../components/PostCard.astro";
+import { site, slogan } from "../config";
+import { getPosts } from "../lib/posts";
+
+const posts = await getPosts();
+
+// 流式输出的欢迎文案（纯文本，用 \n 分行）
+// 【扩展点】想改打字内容/语速，改这里 + 下面 script 标签里的 speed 即可，不用碰别处~♡
+// 标题（日文欢迎语）也做流式打字~♡ 【扩展点】想改标题文字改这里~♡
+// 🔍 站点绝对地址（frontmatter 里算好，模板里直接用，避免 Astro 作用域问题~♡）
+const siteUrl = Astro.site ? Astro.site.toString() : "/";
+const welcomeTitle = "いらっしゃいませ~♡";
+const welcomeText =
+  slogan +
+  "\n这里是 " + site.name + " 的小小部屋，整理着我的兴趣、壁纸收藏和偶然的瞬间。" +
+  "\n欢迎在右侧看看站点统计，或从导航去逛逛「档案 / 兴趣 / 链接 / 我的」~♡";
 ---
+<Layout active="home">
+  <!-- 🔍 JSON-LD 结构化数据（对应 SEO 增强）：让搜索引擎认识整个站点~♡ -->
+  <script is:inline type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: site.name,
+    alternateName: site.alias,
+    url: siteUrl,
+    description: site.tagline,
+  })} />
 
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>我的个人主页</title>
-    <style>
-      body {
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        /* 二次元粉蓝渐变背景 */
-        background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
-        font-family: "Microsoft YaHei", sans-serif;
-      }
+  <!-- 欢迎横幅卡（中间那句话说一遍的话，用打字机流式输出~♡） -->
+  <section class="card welcome">
+    <h1 id="typed-title" style="font-size:26px; letter-spacing:2px; color:var(--accent-deep);"></h1>
+    <!-- 打字机输出区：初始为空，加载后逐字打出（光标是后面 JS 动态加的~♡） -->
+    <p id="typed" style="margin-top:12px; line-height:1.9; color:var(--text); white-space:pre-line;"></p>
+  </section>
 
-      .awa {
-        width: 150px;
-        height: 150px;
-        border-radius: 50%;
-        border: 4px solid #ffffff;
-        box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-        margin-bottom: 20px;
-        /* 关键：确保图片填充圆形区域，且不变形 */
-        object-fit: cover;
-        display: block;
-      }
+  <!-- 🗂️ 首页快捷分区（对应优化③：一排小卡片，首页更有层次~♡）
+       【扩展点】想加/减分区，增删下面 <a> 一行即可~♡
+       图标统一用 <Icon> 标准 SVG（不再是 emoji~♡）：
+         book→日志 / folder→归档 / heart→兴趣 / image→壁纸 / user→友链~♡ -->
+  <section class="quick-grid" style="margin-top:22px;">
+    <a class="quick card" href="/moments/"><span class="q-ic"><Icon name="heart" size={15} /></span>日常瞬间</a>
+    <a class="quick card" href="/articles/"><span class="q-ic"><Icon name="book" size={15} /></span>文章</a>
+    <a class="quick card" href="/archive/"><span class="q-ic"><Icon name="folder" size={15} /></span>文章档案</a>
+    <a class="quick card" href="/hobbies/"><span class="q-ic"><Icon name="heart" size={15} /></span>兴趣</a>
+    <a class="quick card" href="/walls/"><span class="q-ic"><Icon name="image" size={15} /></span>壁纸</a>
+    <a class="quick card" href="/friends/"><span class="q-ic"><Icon name="user" size={15} /></span>友链</a>
+  </section>
 
-      h1 {
-        color: #ffffff;
-        text-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-        letter-spacing: 2px;
-        margin-bottom: 10px;
-      }
+  <!-- 最新文章 -->
+  <section class="sec" style="margin-top:26px;">
+    <h2 class="sec-title"><Icon name="book" size={17} />&nbsp;最近更新</h2>
+    {posts.length > 0 ? (
+      <ul class="posts">
+        {posts.slice(0, 6).map((p) => (
+          <PostCard post={p} />
+        ))}
+      </ul>
+    ) : (
+      <p class="empty">（还没有文章，去 src/content/posts/ 添加一篇 Markdown 吧~）</p>
+    )}
+  </section>
+</Layout>
 
-      p {
-        color: #ffffff;
-        opacity: 0.8;
-        font-size: 16px;
+<style>
+  /* 🗂️ 首页快捷分区（改紧凑版 ~♡）
+       💡 调整「占地面积」的地方：
+       · 上面 grid 的 minmax(88px, 1fr) 决定每格最小宽（越小越省地方、越紧凑~♡）
+       · 下面 .quick.card 的 padding / gap / font-size 决定卡本身大小~♡ */
+  .quick-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px;
+  }
+  .quick.card {
+    text-decoration: none; display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 8px 10px; color: var(--text); white-space: nowrap;
+    font-weight: 600; font-size: 12.5px; letter-spacing: 1px;
+    transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+  }
+  .quick.card .q-ic { display: inline-flex; align-items: center; color: var(--accent2); }
+  .quick.card .q-ic svg { display: block; }
+  .quick.card:hover {
+    transform: translateY(-2px); border-color: var(--accent); text-decoration: none;
+    color: var(--text-bright);
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 14%, transparent),
+      color-mix(in srgb, var(--accent2) 14%, transparent));
+    box-shadow: 0 6px 16px rgba(0,0,0,.08);
+  }
+
+  /* 📱 手机端：两列均分；5 个入口时最后一张占满整行，不会孤零零落单~♡
+     （写在页内 scoped 样式里：这里的 .quick-grid 特异性比 global.css 高，
+      所以手机端规则必须放这儿才盖得住上面的 auto-fill~♡） */
+  @media (max-width: 640px) {
+    .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .quick.card { padding: 14px 10px; font-size: 13px; }
+    .quick.card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
+
+  /* 打字机闪烁光标 */
+  .welcome #typed { min-height: 105px; }           /* 预留高度，避免打字时页面跳动~♡ */
+  .caret {
+    display: inline-block; margin-left: 2px; color: var(--accent-deep);
+    animation: caret-blink 1s step-start infinite; font-weight: 700;
+  }
+  @keyframes caret-blink { 50% { opacity: 0; } }
+</style>
+
+<script define:vars={{ welcomeTitle, welcomeText }}>
+  (function () {
+    // 语速（毫秒/字）：标题放慢一点更有仪式感，正文略快~♡
+    // 【扩展点】想调快慢改下面几个数即可~♡
+    // 📱 手机屏小、等待感更强 → 速度自动加快，整段约 2.5 秒打完（桌面保持原速）
+    var NARROW = window.matchMedia("(max-width: 640px)").matches;
+    // ♿ 系统开了「减弱动态效果」的用户：直接显示全文，不做逐字动画~♡
+    var REDUCE = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var titleSpeed = NARROW ? 85 : 150;   // 标题（日文大字）语速
+    var bodySpeed  = NARROW ? 26 : 48;    // 正文（小字）语速
+
+    // —— 全局「版本号守卫」：解决连刷导致的“前后抽搐”~♡ ——
+    // 每次开始新打字循环，全局版本号 +1；旧循环发现版本对不上立刻退出。
+    // 这样无论 load / 切页 / 强刷触发多少次，永远只有“最新那一次”在打字~♡
+    if (!window.__typeGen) window.__typeGen = 0;
+
+    function makeCaret() {
+      var c = document.createElement("span");
+      c.className = "caret";
+      c.textContent = "▋";
+      return c;
+    }
+
+    // 给元素逐字打字：text=内容, sp=语速, done=打完回调~♡
+    function typeInto(el, text, sp, done) {
+      var myGen = ++window.__typeGen;     // 占一个最新版本号
+      el.textContent = "";
+      var i = 0;
+      (function step() {
+        if (window.__typeGen !== myGen) return;   // 有更新的任务 → 立刻停（防抽搐~♡）
+        if (i <= text.length) {
+          el.textContent = text.slice(0, i);
+          el.appendChild(makeCaret());
+          i++;
+          setTimeout(step, sp);
+        } else if (done) done();
+      })();
+    }
+
+    function typeit() {
+      var titleEl = document.getElementById("typed-title");
+      var bodyEl  = document.getElementById("typed");
+      if (!titleEl || !bodyEl) return;
+      ++window.__typeGen;                // 先取消还没完成的旧任务~♡
+      // ♿ 减弱动态：一次性填全文（不闪光标、不逐字跳动）~♡
+      if (REDUCE) {
+        titleEl.textContent = welcomeTitle;
+        bodyEl.textContent = welcomeText;
+        return;
       }
-    </style>
-  </head>
-  <body>
-    <!-- 使用 img 标签直接引入图片 -->
-    <img class="awa" src="/awa.jpg" alt="我的头像" />
-    
-    <h1>Welcome to my world</h1>
-    <p>个人主页搭建中...</p>
-  </body>
-</html>
+      typeInto(titleEl, welcomeTitle, titleSpeed, function () {
+        typeInto(bodyEl, welcomeText, bodySpeed);
+      });
+    }
+
+    // 防抖：避免“首次 load 和 astro:page-load 同时触发”导致打两遍~♡
+    var lastStart = 0;
+    function boot() {
+      var now = Date.now();
+      if (now - lastStart < 250) return;
+      lastStart = now;
+      typeit();
+    }
+
+    // 等整页加载完（含加载动画淡出）再开始，标题就不会抢先打完了~♡
+    if (document.readyState === "complete") boot();
+    else window.addEventListener("load", boot);
+
+    // 切页（View Transitions）再进来也重新打一遍~♡
+    document.addEventListener("astro:page-load", boot);
+  })();
+</script>

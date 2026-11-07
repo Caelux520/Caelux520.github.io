@@ -1,0 +1,179 @@
+---
+// ============================================================
+//  📖 文章 (Articles) — 大卡片版，封面图看得见，翻页看~♡
+// ------------------------------------------------------------
+//  和「档案」(/archive/) 是同一批文章（技术类正式长文），只是两种看法：
+//    · /articles/  大卡片 + 封面 + 简介，一页 6 篇，底部有 1 2 3 页码
+//    · /archive/   一行一条的紧凑索引，按年份 / 分类 / 标签分组
+//  日常的碎碎念在 /moments/（日常瞬间）~♡
+//
+//  分页用 Astro 自带的 paginate：
+//    第 1 页 = /articles/    第 2 页 = /articles/2/    …
+//  【扩展点】想改成每页几篇，改下面的 PAGE_SIZE 就行~♡
+// ============================================================
+import type { Page, GetStaticPaths } from "astro";
+import Layout from "../../layouts/Layout.astro";
+import Icon from "../../components/Icon.astro";
+import PostCard from "../../components/PostCard.astro";
+import Pager from "../../components/Pager.astro";
+import { getPosts } from "../../lib/posts";
+import { groupOfCategory } from "../../config/postGroups";
+
+// ⚠️ 页数常量必须写在 getStaticPaths 内部：Astro 会把 getStaticPaths 抽成单独的 chunk，
+//    外面定义的变量在那里面拿不到（会报 PAGE_SIZE is not defined）~♡
+export const getStaticPaths = (async ({ paginate }) => {
+  const PAGE_SIZE = 6;
+  const all = await getPosts();
+  const posts = all.filter((p) => groupOfCategory(p.category) === "tech");
+  return paginate(posts, { pageSize: PAGE_SIZE });
+}) satisfies GetStaticPaths;
+
+type PostItem = Awaited<ReturnType<typeof getPosts>>[number];
+
+interface Props {
+  page: Page<PostItem>;
+}
+
+const { page } = Astro.props;
+
+// 页头的统计数字要全量，这里再取一次（构建期取的，不影响访客~♡）
+const all = await getPosts();
+const tech = all.filter((p) => groupOfCategory(p.category) === "tech");
+const tags = [...new Set(tech.flatMap((p) => p.tags || []))];
+const years = [...new Set(tech.map((p) => String(p.date).slice(0, 4)))].sort();
+const yearRange = years.length > 1 ? years[0] + "–" + years[years.length - 1] : years[0] || "—";
+const posts = page.data;
+---
+<Layout active="articles" title={"文章 · いんしゅん の部屋"} desc="技术类的正式文章，带封面的大卡片~">
+  <!-- ---------- 页头 ---------- -->
+  <section class="card at-hero">
+    <div class="at-hero-main">
+      <span class="at-kicker"><Icon name="book" size={14} /> ARTICLES · 文章</span>
+      <h1>文章</h1>
+      <p>技术类的正式长文，带封面的卡片版。想按年份一条条找，去 <a href="/archive/">文章档案</a>~♡</p>
+    </div>
+    <div class="at-figures" aria-hidden="true">
+      <span class="at-figure"><b>{tech.length}</b><em>篇文章</em></span>
+      <span class="at-figure"><b>{tags.length}</b><em>个标签</em></span>
+      <span class="at-figure"><b>{years.length}</b><em>个年份</em></span>
+    </div>
+  </section>
+
+  <!-- ---------- 卡片列表（当前页） ---------- -->
+  {posts.length > 0 ? (
+    <ul class="posts">
+      {posts.map((p) => <PostCard post={p} />)}
+    </ul>
+  ) : (
+    <div class="card" style="padding:34px; text-align:center;">
+      <div style="color:var(--accent);"><Icon name="book" size={44} /></div>
+      <p class="empty" style="margin-top:12px;">
+        还没有文章~ 去 <code style="color:var(--accent);">src/content/posts/</code> 写一篇，
+        <code style="color:var(--accent);">category</code> 填「技术」就会出现在这里~♡
+      </p>
+    </div>
+  )}
+
+  <!-- ---------- 页码 ---------- -->
+  {page.total > 0 ? (
+    <Pager current={page.currentPage} last={page.lastPage} base="/articles/" total={page.total} label="文章分页" />
+  ) : null}
+
+  {page.total > 0 ? (
+    <p class="at-foot">
+      {yearRange} · <a href="/archive/">换个看法：档案索引 <Icon name="arrow-right" size={12} /></a>
+    </p>
+  ) : null}
+</Layout>
+
+<style>
+  .at-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 24px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .at-hero::before {
+    content: "";
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -90px;
+    top: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--accent2) 20%, transparent), transparent 68%);
+    pointer-events: none;
+  }
+  .at-hero-main { position: relative; z-index: 1; }
+  .at-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    color: var(--accent2);
+  }
+  .at-hero h1 {
+    margin: 9px 0 0;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--accent2);
+  }
+  .at-hero p {
+    margin: 10px 0 0;
+    max-width: 520px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+  .at-hero p a { color: var(--tech-1); font-weight: 600; }
+
+  .at-figures {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 9px;
+    flex: none;
+  }
+  .at-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 62px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--card-bg) 78%, transparent);
+  }
+  .at-figure b { font-size: 17px; line-height: 1.2; color: var(--accent2); }
+  .at-figure em { font-size: 10px; font-style: normal; letter-spacing: 1px; color: var(--text-dim); }
+
+  .at-foot {
+    margin: 2px 0 4px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .at-foot a {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--accent);
+    text-decoration: none;
+    margin-left: 4px;
+  }
+  .at-foot a:hover { text-decoration: underline; }
+
+  @media (max-width: 720px) {
+    .at-hero { flex-direction: column; align-items: flex-start; padding: 20px; }
+    .at-hero h1 { font-size: 22px; }
+    .at-figures { width: 100%; }
+    .at-figure { flex: 1; min-width: 0; }
+  }
+</style>

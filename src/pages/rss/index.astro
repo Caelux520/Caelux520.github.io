@@ -1,0 +1,132 @@
+---
+// ============================================================
+//  📡 RSS 订阅页（/rss/）
+// ------------------------------------------------------------
+//  为什么要有这一页：直接打开 /rss.xml 是给阅读器读的 XML，
+//  浏览器里看到的就是一串原始标签（还带 XSLT 弃用提示）。
+//  所以站点里的 RSS 图标改指这里：一页 HTML 说明 + 文章列表 + 一键复制订阅地址~♡
+// ============================================================
+import Layout from "../../layouts/Layout.astro";
+import Icon from "../../components/Icon.astro";
+import { site } from "../../config";
+import { getPosts } from "../../lib/posts";
+
+const posts = (await getPosts())
+  .slice()
+  .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+const feedUrl = new URL("/rss.xml", Astro.site ?? "https://caelux520.github.io").href;
+const latest = posts[0]?.date ?? "";
+---
+
+<Layout title={"RSS 订阅 · " + site.pageTitle} desc="用阅读器订阅本站，新文章自动送到手里~♡" active="posts">
+  <div class="rss-wrap">
+    <header class="rss-head card">
+      <div class="rss-brand"><span class="rss-dot"></span><Icon name="music" size={14} />&nbsp;订阅</div>
+      <h1>RSS 订阅</h1>
+      <p class="rss-sub">
+        本站更新 {posts.length} 篇，最近一篇 {latest}。把下面的地址粘到任意 RSS 阅读器（Feedly、Inoreader、NetNewsWire…）就能订阅，
+        有新文章它会自己送到你手里~♡
+      </p>
+
+      <div class="rss-addr">
+        <code id="rss-url">{feedUrl}</code>
+        <button type="button" class="rss-copy" id="rss-copy">复制地址</button>
+      </div>
+      <p class="rss-tip">
+        原始文件是 <a href="/rss.xml">/rss.xml</a>——阅读器读的就是它，浏览器打开会渲染成订阅页。
+      </p>
+    </header>
+
+    <section class="rss-list" aria-label="最近的文章">
+      {posts.map((p) => (
+        <article class="rss-item card">
+          <time class="rss-when" datetime={p.date}>{p.date}</time>
+          <h2 class="rss-title"><a href={`/posts/${p.slug}/`}>{p.title}</a></h2>
+          {p.desc && <p class="rss-desc">{p.desc}</p>}
+          {p.tags?.length ? (
+            <div class="rss-tags">
+              {p.tags.map((t: string) => <span class="rss-tag">{t}</span>)}
+            </div>
+          ) : null}
+        </article>
+      ))}
+    </section>
+  </div>
+</Layout>
+
+<script>
+  function setupRssCopy() {
+    const btn = document.getElementById("rss-copy");
+    const code = document.getElementById("rss-url");
+    if (!btn || !code || btn.dataset.ready === "1") return;
+    btn.dataset.ready = "1";
+
+    btn.addEventListener("click", function () {
+      const url = (code.textContent || "").trim();
+      const flash = function (text: string) {
+        const old = btn.textContent;
+        btn.textContent = text;
+        window.setTimeout(function () { btn.textContent = old; }, 1800);
+      };
+      // 复制不了就把地址选中，用户直接 Ctrl+C~♡
+      const select = function () {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        flash("已选中，按 Ctrl+C");
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(
+          function () { flash("已复制 ✓"); },
+          select
+        );
+      } else {
+        select();
+      }
+    });
+  }
+  setupRssCopy();
+  document.addEventListener("astro:page-load", setupRssCopy);
+</script>
+
+<style>
+  .rss-wrap { max-width: 760px; margin: 0 auto; padding: 26px 0 10px; }
+  .rss-head { padding: 26px 26px 20px; }
+  .rss-brand { display: flex; align-items: center; gap: 6px; font-size: 11.5px; letter-spacing: 2px; color: var(--text-dim); }
+  .rss-dot { width: 7px; height: 7px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+  .rss-head h1 { margin: 10px 0 8px; font-size: 24px; letter-spacing: 1px; }
+  .rss-sub { margin: 0 0 16px; font-size: 13px; line-height: 1.9; color: var(--text-dim); }
+  .rss-addr { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .rss-addr code {
+    flex: 1 1 300px; padding: 9px 14px; border-radius: 999px;
+    border: 1px dashed var(--border); background: var(--card-bg);
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px;
+    color: var(--accent-deep); overflow-wrap: anywhere;
+  }
+  .rss-copy {
+    padding: 8px 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card-bg);
+    color: var(--text); font-size: 12px; transition: border-color .2s, color .2s;
+  }
+  .rss-copy:hover { border-color: var(--accent); color: var(--accent); }
+  .rss-tip { margin: 12px 0 0; font-size: 11.5px; color: var(--text-dim); }
+  .rss-tip a { color: var(--accent-deep); }
+
+  .rss-list { margin-top: 16px; display: grid; gap: 12px; }
+  .rss-item { padding: 18px 20px; }
+  .rss-when { font-size: 11.5px; letter-spacing: 1.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .rss-title { margin: 4px 0 6px; font-size: 16.5px; line-height: 1.5; }
+  .rss-title a { color: var(--text); text-decoration: none; transition: color .2s; }
+  .rss-title a:hover { color: var(--accent); }
+  .rss-desc { margin: 0; font-size: 12.5px; line-height: 1.8; color: var(--text-dim); }
+  .rss-tags { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .rss-tag {
+    padding: 2px 9px; border-radius: 999px; font-size: 11px;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+</style>

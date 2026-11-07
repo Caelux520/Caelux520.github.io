@@ -1,0 +1,385 @@
+---
+// ============================================================
+//  🗂️ 文章档案 (Archive) — "写好的、正式的文章"都放这里
+// ------------------------------------------------------------
+//  和「日常瞬间」(/moments/) 是两个并列的版块：
+//    · /moments/  日常瞬间 —— 随笔、生活，轻一点
+//    · /archive/  文章档案 —— 技术、教程这类正式长文
+//  归属规则在 src/config/postGroups.ts（按 category 归类）。
+//
+//  版式参考 Shirone 归档页：一条分段控件切换三种分组（年份 / 分类 / 标签），
+//  下面按组列出「日期 · 分类 · 标题 · 标签」的紧凑行，年份组可以折叠~♡
+// ============================================================
+import Layout from "../layouts/Layout.astro";
+import Icon from "../components/Icon.astro";
+import ArchiveRow from "../components/ArchiveRow.astro";
+import { getPosts } from "../lib/posts";
+import { groupOfCategory } from "../config/postGroups";
+
+const all = await getPosts();
+// 档案只收「技术」这一档；日常瞬间在 /moments/ ~♡
+const posts = all.filter((p) => groupOfCategory(p.category) === "tech");
+
+// ---------- 三种分组 ----------
+const yearGroups = (() => {
+  const map = new Map<string, typeof posts>();
+  for (const p of posts) {
+    const y = String(p.date).slice(0, 4);
+    const list = map.get(y);
+    if (list) list.push(p);
+    else map.set(y, [p]);
+  }
+  return [...map.entries()].map(([label, items]) => ({ key: "y-" + label, label, items }));
+})();
+
+const categoryGroups = (() => {
+  const map = new Map<string, typeof posts>();
+  for (const p of posts) {
+    const list = map.get(p.category);
+    if (list) list.push(p);
+    else map.set(p.category, [p]);
+  }
+  return [...map.entries()].map(([label, items]) => ({ key: "c-" + label, label, items }));
+})();
+
+const tagGroups = (() => {
+  const map = new Map<string, typeof posts>();
+  for (const p of posts) {
+    for (const t of p.tags || []) {
+      const list = map.get(t);
+      if (list) list.push(p);
+      else map.set(t, [p]);
+    }
+  }
+  // 标签按文章数从多到少排
+  return [...map.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([label, items]) => ({ key: "t-" + label, label: "#" + label, items }));
+})();
+
+const years = yearGroups.map((g) => g.label).sort();
+const yearRange = years.length > 1 ? years[0] + "–" + years[years.length - 1] : years[0] || "—";
+---
+<Layout active="archive" title={"文章档案 · いんしゅん の部屋"}>
+  <!-- ---------- 页头 ---------- -->
+  <section class="card ar-hero">
+    <div class="ar-hero-main">
+      <span class="ar-kicker"><Icon name="folder" size={14} /> ARCHIVE · 文章档案</span>
+      <h1>档案</h1>
+      <p>写好的、正式的那些文章都收在这里，按年份排好。想看带封面的大卡片，去 <a href="/articles/">文章</a>；日常的碎碎念在 <a href="/moments/">日常瞬间</a>~♡</p>
+    </div>
+    <div class="ar-figures" aria-hidden="true">
+      <span class="ar-figure"><b>{posts.length}</b><em>篇文章</em></span>
+      <span class="ar-figure"><b>{yearGroups.length}</b><em>个年份</em></span>
+      <span class="ar-figure"><b>{tagGroups.length}</b><em>个标签</em></span>
+    </div>
+  </section>
+
+  <!-- ---------- 分组方式 + 列表 ---------- -->
+  <section class="card ar-body">
+    {posts.length > 0 ? (
+      <>
+        <div class="ar-modes" role="tablist" aria-label="分组方式">
+          <button type="button" class="ar-mode on" data-mode-btn="year" role="tab" aria-selected="true">按年份</button>
+          <button type="button" class="ar-mode" data-mode-btn="category" role="tab" aria-selected="false">按分类</button>
+          <button type="button" class="ar-mode" data-mode-btn="tag" role="tab" aria-selected="false">按标签</button>
+          <span class="ar-total"><b id="ar-count">{posts.length}</b> 篇 · {yearRange}</span>
+        </div>
+
+        <!-- 按年份 -->
+        <div class="ar-panel" data-mode-panel="year">
+          {yearGroups.map((g) => (
+            <section class="ar-group">
+              <button type="button" class="ar-group-head" data-collapse aria-expanded="true">
+                <span class="ar-group-title">{g.label}</span>
+                <span class="ar-group-count">{g.items.length} 篇</span>
+                <span class="ar-chev"><Icon name="down" size={13} /></span>
+              </button>
+              <ul class="ar-rows">
+                {g.items.map((p) => <ArchiveRow post={p} showYear={false} />)}
+              </ul>
+            </section>
+          ))}
+        </div>
+
+        <!-- 按分类 -->
+        <div class="ar-panel" data-mode-panel="category" hidden>
+          {categoryGroups.map((g) => (
+            <section class="ar-group">
+              <div class="ar-group-head ar-group-head--static">
+                <span class="ar-group-title">{g.label}</span>
+                <span class="ar-group-count">{g.items.length} 篇</span>
+              </div>
+              <ul class="ar-rows">
+                {g.items.map((p) => <ArchiveRow post={p} />)}
+              </ul>
+            </section>
+          ))}
+        </div>
+
+        <!-- 按标签 -->
+        <div class="ar-panel" data-mode-panel="tag" hidden>
+          {tagGroups.map((g) => (
+            <section class="ar-group">
+              <div class="ar-group-head ar-group-head--static">
+                <span class="ar-group-title">{g.label}</span>
+                <span class="ar-group-count">{g.items.length} 篇</span>
+              </div>
+              <ul class="ar-rows">
+                {g.items.map((p) => <ArchiveRow post={p} />)}
+              </ul>
+            </section>
+          ))}
+        </div>
+
+        <p class="ar-empty" id="ar-empty" hidden>这个条件下还没有文章哦~♡</p>
+      </>
+    ) : (
+      <div style="padding:28px; text-align:center;">
+        <div style="color:var(--accent);"><Icon name="ghost" size={44} /></div>
+        <p class="empty" style="margin-top:12px;">
+          档案还是空的~ 去 <code style="color:var(--accent);">src/content/posts/</code> 写一篇，
+          <code style="color:var(--accent);">category</code> 填「技术」就会出现在这里~♡
+        </p>
+      </div>
+    )}
+  </section>
+
+</Layout>
+
+<style>
+  /* ---------- 页头 ---------- */
+  .ar-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 24px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .ar-hero::before {
+    content: "";
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -90px;
+    top: -120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--tech-1) 20%, transparent), transparent 68%);
+    pointer-events: none;
+  }
+  .ar-hero-main { position: relative; z-index: 1; }
+  .ar-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    color: var(--tech-1);
+  }
+  .ar-hero h1 {
+    margin: 9px 0 0;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--tech-1);
+  }
+  .ar-hero p {
+    margin: 10px 0 0;
+    max-width: 520px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+  .ar-hero p a { color: var(--daily-2); font-weight: 600; }
+  .ar-figures {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 9px;
+    flex: none;
+  }
+  .ar-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 62px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--card-bg) 78%, transparent);
+  }
+  .ar-figure b { font-size: 17px; line-height: 1.2; color: var(--tech-1); }
+  .ar-figure em { font-size: 10px; font-style: normal; letter-spacing: 1px; color: var(--text-dim); }
+
+  /* ---------- 主体 ---------- */
+  .ar-body { padding: 14px 18px 20px; }
+
+  .ar-modes {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    border: 1px solid var(--border);
+  }
+  .ar-mode {
+    flex: 1;
+    padding: 7px 6px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    font-family: inherit;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+  }
+  .ar-mode:hover { color: var(--accent); }
+  .ar-mode.on {
+    background: var(--card-bg);
+    color: var(--accent);
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+  }
+  .ar-total {
+    flex: none;
+    padding-right: 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .ar-total b { color: var(--tech-1); }
+
+  /* ---------- 分组 ---------- */
+  .ar-panel { margin-top: 6px; }
+  .ar-panel[hidden] { display: none; }
+  .ar-group { margin-top: 14px; }
+  .ar-group-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 6px 8px 8px;
+    border: 0;
+    border-bottom: 1px dashed var(--border);
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+  .ar-group-head--static { cursor: default; }
+  .ar-group-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text-bright);
+  }
+  .ar-group-count { font-size: 11px; color: var(--text-dim); }
+  .ar-chev {
+    margin-left: auto;
+    display: inline-flex;
+    color: var(--text-dim);
+    transition: transform .2s ease;
+  }
+  .ar-group[data-collapsed="1"] .ar-chev { transform: rotate(-90deg); }
+  .ar-group[data-collapsed="1"] .ar-rows { display: none; }
+  .ar-rows { padding: 4px 0 0; }
+
+  .ar-empty {
+    margin: 18px 0 4px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  @media (max-width: 720px) {
+    .ar-hero { flex-direction: column; align-items: flex-start; padding: 20px; }
+    .ar-hero h1 { font-size: 22px; }
+    .ar-figures { width: 100%; }
+    .ar-figure { flex: 1; min-width: 0; }
+    .ar-body { padding: 12px; }
+    .ar-mode { font-size: 11.5px; }
+    .ar-total { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ar-chev, .ar-cross, .ar-mode { transition: none; }
+  }
+</style>
+
+<script>
+  // 🗂️ 档案页交互：分组切换 / 年份折叠 / 侧栏 ?category= 筛选
+  function setupArchive() {
+    const body = document.querySelector(".ar-body");
+    if (!body || body.getAttribute("data-ready") === "1") return;
+    body.setAttribute("data-ready", "1");
+
+    const modeButtons = Array.from(body.querySelectorAll<HTMLElement>("[data-mode-btn]"));
+    const panels = Array.from(document.querySelectorAll<HTMLElement>("[data-mode-panel]"));
+
+    // ---------- 1. 切换分组方式 ----------
+    function setMode(mode: string) {
+      modeButtons.forEach((btn) => {
+        const on = btn.getAttribute("data-mode-btn") === mode;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      panels.forEach((panel) => {
+        panel.hidden = panel.getAttribute("data-mode-panel") !== mode;
+      });
+    }
+
+    modeButtons.forEach((btn) => {
+      btn.addEventListener("click", () => setMode(btn.getAttribute("data-mode-btn") || "year"));
+    });
+
+    // ---------- 2. 年份组折叠 ----------
+    body.querySelectorAll("[data-collapse]").forEach((head) => {
+      head.addEventListener("click", () => {
+        const group = head.closest(".ar-group");
+        if (!group) return;
+        const collapsed = group.getAttribute("data-collapsed") === "1";
+        group.setAttribute("data-collapsed", collapsed ? "0" : "1");
+        head.setAttribute("aria-expanded", collapsed ? "true" : "false");
+      });
+    });
+
+    // ---------- 3. 侧栏分类 / 标签筛选 ----------
+    function applyFilter() {
+      const params = new URLSearchParams(location.search);
+      const cat = params.get("category") || "";
+      const tag = params.get("tag") || "";
+      const rows = Array.from(document.querySelectorAll(".arc-row"));
+      let shown = 0;
+
+      rows.forEach((row) => {
+        const okCat = !cat || row.getAttribute("data-cat") === cat;
+        const okTag = !tag || (row.getAttribute("data-tags") || "").split(",").indexOf(tag) !== -1;
+        const show = okCat && okTag;
+        (row as HTMLElement).hidden = !show;
+        if (show) shown++;
+      });
+
+      const empty = document.getElementById("ar-empty");
+      if (empty) empty.hidden = shown !== 0;
+
+      // 分组里一篇都不剩就整组藏起来
+      document.querySelectorAll(".ar-group").forEach((group) => {
+        const visible = group.querySelectorAll(".arc-row:not([hidden])").length;
+        (group as HTMLElement).hidden = visible === 0;
+      });
+    }
+
+    applyFilter();
+    document.addEventListener("astro:page-load", applyFilter);
+  }
+
+  setupArchive();
+  document.addEventListener("astro:page-load", setupArchive);
+</script>

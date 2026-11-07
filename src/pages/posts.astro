@@ -1,0 +1,26 @@
+---
+// ============================================================
+//  📚 旧的「日志」列表页 (/posts/)
+// ------------------------------------------------------------
+//  内容已经分成两个并列版块：
+//    · /moments/  日常瞬间
+//    · /articles/  文章档案
+//  老链接还认，进来直接送到「文章」（卡片版）~♡
+//  （文章详情仍然是 /posts/<slug>/ 不变~♡）
+// ============================================================
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>正在前往文章档案…</title>
+    <link rel="canonical" href="/articles/" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="0; url=/articles/" />
+    <script is:inline>location.replace("/articles/");</script>
+  </head>
+  <body style="font-family:system-ui,sans-serif;padding:48px;text-align:center;color:#666;">
+    <p>正在前往 <a href="/articles/">文章档案</a>…</p>
+    <p><a href="/moments/">日常瞬间</a> · <a href="/">回到首页</a></p>
+  </body>
+</html>

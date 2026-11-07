@@ -1,0 +1,694 @@
+---
+// ============================================================
+//  📖 文章详情 (动态路由 /posts/<slug>/)
+//  读 Astro Content Collections，每篇 Markdown 文件自动生成详情页。
+//  【对应升级】
+//   · #10 Markdown 渲染（正文支持标题/代码/表格/提示框）
+//   · #3  文章目录 TOC + 预计阅读时间/字数
+// ============================================================
+import Layout from "../../layouts/Layout.astro";
+import { wordCount, site, groupOfCategory } from "../../config";
+import { renderMarkdown, extractHeadings } from "../../lib/markdown";
+import { getPosts } from "../../lib/posts";
+import Icon from "../../components/Icon.astro";
+import RelatedPosts from "../../components/RelatedPosts.astro";
+import WallLightbox from "../../components/WallLightbox.astro";
+import { createHash } from "node:crypto";
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  const newSlugs = new Set(posts.map((p) => p.slug));
+
+  return posts.flatMap((p) => {
+    const paths = [{ params: { slug: p.slug }, props: { post: p, legacy: false } }];
+
+    // 兼容旧地址：以前 /posts/md-guide/ 这种文件名 URL 仍可访问，
+    // 自动跳到新的标题 URL；如果旧 slug 刚好和新文章撞了，就让新文章优先。
+    if (p.legacySlug && p.legacySlug !== p.slug && !newSlugs.has(p.legacySlug)) {
+      paths.push({ params: { slug: p.legacySlug }, props: { post: p, legacy: true } });
+    }
+
+    return paths;
+  });
+}
+
+const { post, legacy = false } = Astro.props;
+// 旧文件名地址 → 跳到标题地址。静态构建会生成 0 秒 meta refresh 跳转页，
+// canonical 指向新地址；旧书签/旧分享链接不会直接 404。
+if (legacy) return Astro.redirect(`/posts/${encodeURIComponent(post.slug)}/`, 301);
+// 文章密码 hash（对应升级 #8）：服务端用 SHA-256 算好，前端只比对 hash、不存明文~♡
+const pwHash = post.password ? createHash("sha256").update(post.password).digest("hex") : "";
+// 把正文按 Markdown 渲染（集中调用 lib/markdown.ts —— 对应升级 #10~♡）
+// 【扩展点】正文渲染逻辑统一在 src/lib/markdown.ts，想扩展语法就去那改~♡
+const mdHtml = await renderMarkdown(post.content || "");
+// 从渲染后的 HTML 提取 h2/h3 标题，供目录使用 —— 对应升级 #3~♡
+const headings = extractHeadings(mdHtml);
+// 阅读字数 & 预计阅读时间（英文约 200 词/分，中文约 400 字/分）—— 对应升级 #3~♡
+const words = wordCount(post.content || "");
+const readMin = Math.max(1, Math.round(words / 400));
+// 标题太少就不显示目录（比如 h2/h3 少于 2 个时）—— 扩展点：想调整阈值改这里~♡
+const showToc = headings.length >= 2;
+// 文章页绝对地址（frontmatter 里算好，模板里直接用~♡）
+const pageUrl = Astro.url.href;
+---
+<Layout
+  active="posts"
+  wide
+  ogImage={post.cover}
+  article={post.date}
+  title={`${post.title} · ${site.pageTitle}`}
+  desc={post.desc}
+>
+  <!-- 🔍 JSON-LD 结构化数据（对应 SEO 增强）：文章页给搜索引擎提供富摘要~♡ -->
+  <script is:inline type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.desc,
+    image: new URL(post.cover || site.avatar, Astro.site ?? Astro.url).href,
+    datePublished: post.date,
+    dateModified: post.date,
+    url: pageUrl,
+    mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
+    keywords: (post.tags || []).join(","),
+    articleSection: post.category,
+    wordCount: words,
+    inLanguage: "zh-CN",
+    author: { "@type": "Person", name: site.name, url: new URL("/about/", Astro.site ?? Astro.url).href },
+    publisher: { "@type": "Person", name: site.name, url: new URL("/", Astro.site ?? Astro.url).href },
+  })} />
+
+  <!-- 🧭 面包屑：搜索结果里能显示「首页 › 文章 › 标题」那串路径~♡ -->
+  <script is:inline type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "首页", item: new URL("/", Astro.site ?? Astro.url).href },
+      { "@type": "ListItem", position: 2, name: "文章", item: new URL("/articles/", Astro.site ?? Astro.url).href },
+      { "@type": "ListItem", position: 3, name: post.title, item: pageUrl },
+    ],
+  })} />
+
+  <!-- ⏳ 阅读进度条（对应优化：阅读沉浸感~♡） -->
+  <div class="progress-bar" id="progress-bar"></div>
+
+  <div class="post-rail">
+    <article class="post-page-body card">
+      <h1>{post.title}</h1>
+      <div class="meta">{post.date} · いんしゅんの部屋
+        <span class="read-min">· 📖 约 {readMin} 分钟 · {words} 字</span>
+      </div>
+      <div class="post-meta" style="margin-top:10px;">
+        {post.category && <span class="pm-cat">{post.category}</span>}
+        {(post.tags || []).map((t) => <span class="pm-tag">#{t}</span>)}
+      </div>
+      <p class="desc">{post.desc}</p>
+
+      {post.password && (
+        <div class="lock card" data-hash={pwHash} data-target="post-content">
+          <div class="lock-title"><Icon name="folder" size={16} />&nbsp;🔒 这篇被锁住啦~♡</div>
+          <p>输入密码解锁才能看到正文~♡</p>
+          <form class="lock-form">
+            <input type="password" placeholder="密码" autocomplete="off" />
+            <button type="submit">解锁</button>
+            <span class="lock-msg"></span>
+          </form>
+        </div>
+      )}
+
+      <!-- 🔒 加锁正文区（对应升级 #8）：有 password 时先隐藏，输对密码才显示~♡ -->
+      <div id="post-content" class:list={[ "post-content", { "locked": !!post.password } ]}>
+        <div class="content md-content" set:html={mdHtml}></div>
+      </div>
+      <footer class="back" style="margin-top:24px; padding-top:16px; border-top:1px dashed var(--border);">
+        <a href={groupOfCategory(post.category) === "daily" ? "/moments/" : "/archive/"}>
+          ← 返回{groupOfCategory(post.category) === "daily" ? "日常瞬间" : "文章档案"}
+        </a>
+      </footer>
+
+      <!-- ©️ 文末版权：被转载时至少留个名（CC BY-NC-SA 4.0）~♡ -->
+      <p class="copyright">
+        © {post.date.slice(0, 4)} いんしゅん · 本文采用
+        <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" target="_blank" rel="noopener noreferrer license">CC BY-NC-SA 4.0</a>
+        许可，转载请注明出处~♡
+      </p>
+
+      <!-- 📤 分享：复制链接 / 发到 X（不想用就直接删掉这一块）~♡ -->
+      <div class="share" data-share-url={pageUrl}>
+        <span class="share-label">分享这篇</span>
+        <button type="button" class="share-btn" id="share-copy" aria-label="复制本文链接">
+          <Icon name="edit" size={13} /> 复制链接
+        </button>
+      </div>
+
+      <!-- 🔗 相关文章：按共同标签推荐，读完能接着看下一篇~♡ -->
+      <RelatedPosts post={post} />
+    </article>
+
+    {showToc && (
+      <>
+        <button
+          type="button"
+          class:list={["toc-fab", { "locked": !!post.password }]}
+          id="toc-fab"
+          aria-controls="toc-sheet"
+          aria-expanded="false"
+          aria-label="打开文章目录"
+        >
+          <Icon name="list" size={15} />
+          <span>目录</span>
+        </button>
+        <div class="toc-backdrop" id="toc-backdrop" aria-hidden="true"></div>
+      </>
+    )}
+  </div>
+
+  <!-- 📚 文章目录：挂在右侧栏的卡片区（不再单独占一列，正文就能用满整宽）~♡ -->
+  {showToc && (
+    <aside slot="aside" class="toc-rail" id="toc-sheet" class:list={[ { "locked": !!post.password } ]}>
+      <nav class="toc card" aria-label="文章目录">
+        <div class="toc-title">
+          <span class="toc-title-main"><Icon name="list" size={15} />&nbsp;文章目录</span>
+          <span class="toc-sheet-tools">
+            <span class="toc-progress" id="toc-progress" title="阅读进度">0%</span>
+            <button type="button" class="toc-sheet-close" aria-label="关闭目录"><Icon name="x" size={16} /></button>
+          </span>
+        </div>
+        <div class="toc-list">
+          {headings.map((h) => (
+            <a href={`#${h.id}`} title={h.text} data-toc-level={h.level} set:text={h.text}></a>
+          ))}
+        </div>
+      </nav>
+    </aside>
+  )}
+
+  <!-- 🖼️ 正文图片灯箱：给 Markdown 里的图片用，← → 可以连着翻~♡ -->
+  <WallLightbox />
+</Layout>
+
+<script>
+  // ============================================================
+  //  📚 目录「滚动跟随高亮」（对应升级 #3）
+  //  · 随滚动判断当前读到哪个标题，点亮对应目录项
+  //  · 点击目录项 = 原生锚点跳转，配合全局 smooth 平滑滚动
+  //  【注意】只对本站 .toc 生效，不影响其它页面脚本~♡
+  //  ============================================================
+  function onTocScroll() {
+    const toc = document.querySelector(".toc");
+    if (!toc) return;
+    const links = toc.querySelectorAll('a[href^="#"]');
+    if (!links.length) return;
+    // 顶部导航固定高度偏移，标题滚到此处之上就算「当前章节」~
+    const offset = 110;
+    let cur = links[0];
+    links.forEach((a) => {
+      // 【类型修复】getAttribute 可能返回 null，兜底成空串再截取~♡
+      const id = (a.getAttribute("href") || "").slice(1);
+      const el = document.getElementById(id);
+      if (el && el.getBoundingClientRect().top <= offset) cur = a;
+    });
+    links.forEach((a) => {
+      const active = a === cur;
+      a.classList.toggle("active", active);
+      if (active) a.setAttribute("aria-current", "location");
+      else a.removeAttribute("aria-current");
+    });
+    // 抽屉标题旁的小进度：和顶部进度条同一套算法，顺手给个百分比~♡
+    const progress = document.getElementById("toc-progress");
+    if (progress) {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const percent = max > 0 ? Math.round((window.scrollY / max) * 100) : 0;
+      progress.textContent = Math.max(0, Math.min(100, percent)) + "%";
+    }
+  }
+  // SPA 切页时 window 是持久的，防止滚动监听重复注册（只绑一次）
+  // 【类型修复 + 扩展点】window 上挂一次性标记，避免重复绑滚动监听~♡
+  //  以后想给 window 加别的全局标记，也可照着这种写法~♡
+  const w = window as any;
+  if (!w.__tocBound) {
+    w.__tocBound = onTocScroll;
+    window.addEventListener("scroll", onTocScroll, { passive: true });
+  }
+  // ============================================================
+  //  📱 手机端目录抽屉（≤640px）
+  //  · 正文上方不再占用位置，只留左下角「目录」按钮；
+  //  · 抽屉和桌面侧栏共用同一份 .toc DOM，高亮自然同步；
+  //  · 打开时锁背景滚动，Esc / 点遮罩 / 点关闭键 / 点章节都能收起~♡
+  // ============================================================
+  function setupTocSheet() {
+    const sheet = document.getElementById("toc-sheet");
+    const fab = document.getElementById("toc-fab") as HTMLButtonElement | null;
+    const backdrop = document.getElementById("toc-backdrop");
+    const closeBtn = document.querySelector<HTMLButtonElement>(".toc-sheet-close");
+    if (!sheet || !fab || !backdrop) return;
+    // 收窄后的引用（闭包里 TS 不会再把它们当 null，直接用~♡）
+    const sheetEl: HTMLElement = sheet;
+    const fabEl: HTMLButtonElement = fab;
+    const backdropEl: HTMLElement = backdrop;
+    if (fabEl.dataset.tocReady === "1") return;
+    fabEl.dataset.tocReady = "1";
+
+    const mq = window.matchMedia("(max-width: 640px)");
+    let open = false;
+
+    function syncClosedA11y() {
+      if (mq.matches) {
+        sheetEl.setAttribute("aria-hidden", open ? "false" : "true");
+        if (open) sheetEl.removeAttribute("inert");
+        else sheetEl.setAttribute("inert", "");
+      } else {
+        sheetEl.removeAttribute("aria-hidden");
+        sheetEl.removeAttribute("inert");
+      }
+    }
+
+    function openSheet() {
+      if (!mq.matches || open) return;
+      open = true;
+      sheetEl.classList.add("open");
+      backdropEl.classList.add("show");
+      fabEl.setAttribute("aria-expanded", "true");
+      sheetEl.setAttribute("role", "dialog");
+      sheetEl.setAttribute("aria-modal", "true");
+      document.documentElement.classList.add("toc-sheet-open");
+      sheetEl.removeAttribute("aria-hidden");
+      sheetEl.removeAttribute("inert");
+
+      // 展开后把当前章节滚到抽屉中间，再把焦点放到关闭键~
+      window.setTimeout(function () {
+        if (!open) return;
+        const list = sheetEl.querySelector<HTMLElement>(".toc-list");
+        const active = sheetEl.querySelector<HTMLAnchorElement>("a.active");
+        if (list && active) {
+          const top = active.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+          list.scrollTop = Math.max(0, top - list.clientHeight / 2 + active.offsetHeight / 2);
+        }
+        if (closeBtn) closeBtn.focus({ preventScroll: true });
+        else if (active) active.focus({ preventScroll: true });
+      }, 280);
+    }
+
+    function closeSheet(restoreFocus = true) {
+      if (!open) return;
+      open = false;
+      sheetEl.classList.remove("open");
+      backdropEl.classList.remove("show");
+      fabEl.setAttribute("aria-expanded", "false");
+      sheetEl.removeAttribute("role");
+      sheetEl.removeAttribute("aria-modal");
+      document.documentElement.classList.remove("toc-sheet-open");
+      if (mq.matches) {
+        sheetEl.setAttribute("aria-hidden", "true");
+        sheetEl.setAttribute("inert", "");
+      }
+      if (restoreFocus && mq.matches) fabEl.focus({ preventScroll: true });
+    }
+
+    fabEl.addEventListener("click", function () {
+      if (open) closeSheet();
+      else openSheet();
+    });
+    if (closeBtn) closeBtn.addEventListener("click", function () { closeSheet(); });
+    backdropEl.addEventListener("click", function () { closeSheet(); });
+    sheetEl.querySelectorAll('a[href^="#"]').forEach(function (link) {
+      link.addEventListener("click", function () { closeSheet(false); });
+    });
+    mq.addEventListener("change", function () {
+      if (!mq.matches) {
+        closeSheet(false);
+        sheetEl.removeAttribute("aria-hidden");
+        sheetEl.removeAttribute("inert");
+      } else {
+        syncClosedA11y();
+      }
+    });
+    syncClosedA11y();
+  }
+
+  // SPA 切页时只注册一次全局监听；setup 每次都会重新抓当前页的新 DOM~♡
+  setupTocSheet();
+  onTocScroll();
+  if (!w.__tocPageLoadBound) {
+    w.__tocPageLoadBound = true;
+    document.addEventListener("astro:page-load", function () {
+      document.documentElement.classList.remove("toc-sheet-open");
+      setupTocSheet();
+      onTocScroll();
+    });
+  }
+  if (!w.__tocSheetSwapBound) {
+    w.__tocSheetSwapBound = true;
+    document.addEventListener("astro:before-swap", function () {
+      document.documentElement.classList.remove("toc-sheet-open");
+    });
+  }
+  if (!w.__tocSheetKeyBound) {
+    w.__tocSheetKeyBound = true;
+    document.addEventListener("keydown", function (e) {
+      const current = document.getElementById("toc-sheet");
+      if (!current || !current.classList.contains("open")) return;
+      if (e.key === "Escape") {
+        const btn = current.querySelector<HTMLButtonElement>(".toc-sheet-close");
+        if (btn) {
+          e.preventDefault();
+          btn.click();
+        }
+        return;
+      }
+      // 简单焦点圈：抽屉开着时 Tab 不要跑回后面的正文~
+      if (e.key !== "Tab") return;
+      const focusables = current.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (!current.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+  }
+
+  // ============================================================
+  //  📤 文末「复制链接」
+  //  · 优先用剪贴板 API；被浏览器拦掉（http / 无权限）就退回 execCommand
+  //  · 按钮文字临时变成「已复制」，两秒后自己恢复~♡
+  // ============================================================
+  function setupShare() {
+    const btn = document.getElementById("share-copy");
+    if (!btn || btn.dataset.ready === "1") return;
+    btn.dataset.ready = "1";
+
+    btn.addEventListener("click", function () {
+      const wrap = btn.closest(".share");
+      const url = (wrap && wrap.getAttribute("data-share-url")) || location.href;
+      const label = btn.innerHTML;
+      const flash = function (text: string) {
+        btn.textContent = text;
+        window.setTimeout(function () { btn.innerHTML = label; }, 1800);
+      };
+
+      // 剪贴板 API 被拦（非 https / 没给权限）时的兜底：
+      // 先试 execCommand，再不行就把链接选中留在页面上，让用户自己 Ctrl+C~♡
+      const fallback = function () {
+        const ta = document.createElement("textarea");
+        ta.value = url;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand("copy"); } catch { ok = false; }
+        if (ok) {
+          ta.remove();
+          flash("已复制 ✓");
+        } else {
+          flash("按 Ctrl+C 复制");
+          window.setTimeout(function () { ta.remove(); }, 4000);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { flash("已复制 ✓"); }, fallback);
+      } else {
+        fallback();
+      }
+    });
+  }
+  setupShare();
+  document.addEventListener("astro:page-load", setupShare);
+</script>
+
+<script is:inline>
+  // ============================================================
+  //  ⏳ 阅读进度条（对应优化：阅读沉浸感~♡）
+  //  · 沿顶部一根细条，宽度 = 当前滚过比例
+  //  · 不用 window 全局标记（避免切页后新进度条拿不到），
+  //    每次滚动/切页都重新 grab 当前 #progress-bar 再写宽度~♡
+  //  ============================================================
+  (function () {
+    // is:inline 脚本切页不重跑：第一次整页加载时绑定滚动监听；
+    // 之后 SPA 切页由 astro:page-load 重新 grab 新 bar、继续更新~♡
+    var bar = null;
+    function grab() { bar = document.getElementById("progress-bar"); }
+    function update() {
+      if (!bar) return;
+      var h = document.documentElement.scrollHeight - window.innerHeight;
+      var p = h > 0 ? (window.scrollY / h) * 100 : 0;
+      bar.style.width = p + "%";
+    }
+    var run = function () { grab(); update(); };
+    window.addEventListener("scroll", run, { passive: true });
+    document.addEventListener("astro:page-load", run);
+    run();
+  })();
+</script>
+
+<style>
+  /* 📤 文末分享条：低调地待在版权下面，不抢相关文章的风头~♡ */
+  .share { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+  .share-label { font-size: 11.5px; letter-spacing: 1.5px; color: var(--text-dim); margin-right: 2px; }
+  .share-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 13px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--card-bg);
+    color: var(--text); font-size: 12px; line-height: 1; cursor: pointer;
+    text-decoration: none; transition: border-color .2s, color .2s, background .2s;
+  }
+  .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .share-btn:active { transform: translateY(1px); }
+
+  /* 🔒 解锁卡片（对应升级 #8） */
+  .lock { padding: 20px; margin: 6px 0 4px; text-align: center; }
+  .lock-title { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: var(--accent);
+    display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .lock p { font-size: 13px; color: var(--text-dim); margin: 10px 0 14px; }
+  .lock-form { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .lock-form input { padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--card-bg); color: var(--text); font-size: 13px; outline: none; min-width: 160px; }
+  .lock-form input:focus { border-color: var(--accent); }
+  .lock-form button { padding: 9px 18px; border-radius: 999px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+    font-weight: 600; font-size: 13px; }
+  .lock-msg { display: block; margin-top: 10px; font-size: 12px; color: var(--text-dim); }
+  /* 未解锁时正文整体隐藏 */
+  .post-content.locked { display: none; }
+
+  /* 📚 正文占满整列：目录已经搬到右侧栏，不再和正文抢横向空间~♡ */
+  .post-rail { display: block; }
+  .post-rail .post-page-body { min-width: 0; }
+  /* ©️ 文末版权小字：不抢正文，但被转走时能带走出处~♡ */
+  .copyright { margin: 10px 0 0; font-size: 11.5px; line-height: 1.75; color: var(--text-dim); text-align: center; }
+  .copyright a { color: var(--accent-deep); text-decoration: none; border-bottom: 1px dotted color-mix(in srgb, var(--accent-deep) 45%, transparent); }
+  .copyright a:hover { border-bottom-style: solid; }
+
+  /* 📌 目录卡片：尺寸跟着侧栏走，滚到它之后就一直钉在视口上方，跟老版一样~♡ */
+  .toc-rail { width: 100%; position: sticky; top: 84px; }
+  .toc-rail .toc { margin: 0; border-radius: 16px; }
+  .toc-rail.locked { display: none; }
+  /* 目录标题 + 手机抽屉的控件（桌面端只露出标题）~♡ */
+  .toc-title { justify-content: space-between; }
+  .toc-title-main { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .toc-sheet-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .toc-progress, .toc-sheet-close, .toc-fab, .toc-backdrop { display: none; }
+  /* ⏳ 阅读进度条（对应优化：阅读沉浸感~♡） */
+  .progress-bar { position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    z-index: 9999; box-shadow: 0 1px 4px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+  @media (max-width: 900px) {
+    /* ⚠️ 必须补 align-items: stretch：竖排后交叉轴变成「水平」，
+       flex-start 会让正文卡按内容宽度撑开，超出屏幕把整页拉宽（手机端溢出 bug）~♡ */
+    .post-rail { flex-direction: column; align-items: stretch; }
+    /* 📱 竖排时不钉住：这时候整页是单列，跟着滚反而挡住内容~♡ */
+    .toc-rail { width: 100%; position: static; order: -1; }
+  }
+  /* 📱 手机端目录：悬浮「目录」按钮 + 底部抽屉，不再横向挤 chips~♡ */
+  @media (max-width: 640px) {
+    .toc-rail {
+      position: fixed;
+      inset: auto 0 0;
+      width: auto;
+      max-width: none;
+      z-index: 1200;
+      padding: 0 10px calc(10px + env(safe-area-inset-bottom));
+      order: 0;
+      transform: translateY(110%);
+      visibility: hidden;
+      pointer-events: none;
+      transition: transform .32s cubic-bezier(.22,1,.36,1), visibility 0s linear .32s;
+    }
+    .toc-rail.open {
+      transform: translateY(0);
+      visibility: visible;
+      pointer-events: auto;
+      transition: transform .32s cubic-bezier(.22,1,.36,1), visibility 0s;
+    }
+    .toc-rail .toc {
+      display: flex;
+      flex-direction: column;
+      max-height: min(72vh, 560px);
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 20px 20px 14px 14px;
+      background: color-mix(in srgb, var(--card-bg) 96%, transparent);
+      box-shadow: 0 -20px 60px rgba(0, 0, 0, .22);
+    }
+    .toc-rail .toc::before {
+      content: "";
+      flex: none;
+      width: 36px;
+      height: 4px;
+      margin: 9px auto 0;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--text-dim) 28%, transparent);
+    }
+    .toc-title { flex: none; padding: 10px 16px 9px; }
+    .toc-title-main { font-size: 14px; }
+    .toc-progress {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .5px;
+    }
+    .toc-sheet-close {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--card-bg) 80%, transparent);
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+    .toc-list {
+      flex: 1;
+      min-height: 0;
+      max-height: none;
+      margin-top: 0;
+      flex-direction: column;
+      gap: 2px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 0 10px 10px;
+    }
+    .toc-list a {
+      flex: none;
+      padding: 10px 12px;
+      border: 0;
+      border-left: 2px solid transparent;
+      border-radius: 9px;
+      font-size: 13px;
+      white-space: normal;
+    }
+    .toc-list a[data-toc-level="3"] { padding-left: 26px; font-size: 12px; }
+    .toc-list a.active { border-left-color: var(--accent); }
+    .toc-fab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: fixed;
+      left: 14px;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      z-index: 950;
+      padding: 10px 13px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+      color: var(--accent);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease;
+    }
+    .toc-fab:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .toc-fab.locked { display: none !important; }
+    .toc-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      background: rgba(24, 18, 42, .42);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity .26s ease, visibility 0s linear .26s;
+    }
+    .toc-backdrop.show {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity .26s ease, visibility 0s;
+    }
+  }
+  :global(html.toc-sheet-open) { overflow: hidden; }
+  /* 抽屉打开时把播放器一同压住：布局层有独立 stacking context，
+     单靠抽屉的 z-index 压不过 fixed 播放器，直接藏掉最稳~♡ */
+  :global(html.toc-sheet-open .mp-root) { visibility: hidden !important; }
+</style>
+
+<script>
+  // ============================================================
+  //  🔒 文章解锁逻辑（对应升级 #8）
+  //  · 前端用 Web Crypto 算 SHA-256，与构建时算好的 hash 比对
+  //  · 匹配 → 隐藏锁卡、显示正文；不匹配 → 提示重试
+  //  【说明】这是静态站点的「轻量演示锁」，不建议放真机密；真机密请用后端~♡
+  //  ============================================================
+  async function sha256hex(s: string): Promise<string> {
+    const data = new TextEncoder().encode(s);
+    const buf = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function bindUnlock() {
+    // 【类型修复】用泛型明确类型（HTMLElement 才有 style / dataset）~♡
+    const lock = document.querySelector<HTMLElement>(".lock");
+    if (!lock) return;
+    const target = document.getElementById(lock.dataset.target || "post-content");
+    const form = lock.querySelector<HTMLFormElement>("form");
+    const input = lock.querySelector<HTMLInputElement>("input");
+    const msg = lock.querySelector<HTMLElement>(".lock-msg");
+    // 【类型修复】空值兜底：这几个元素在对应文章里总是存在，但 TS 需要显式判断~♡
+    if (!form || !input || !msg) return;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const h = await sha256hex(input.value || "");
+      if (h === lock.dataset.hash) {
+        lock.style.display = "none";
+        if (target) target.classList.remove("locked");
+        var rail = document.querySelector(".toc-rail");
+        if (rail) rail.classList.remove("locked");
+        var tocFab = document.querySelector(".toc-fab");
+        if (tocFab) tocFab.classList.remove("locked");
+        msg.textContent = "🔓 解锁成功~♡";
+        msg.style.color = "var(--accent)";
+      } else {
+        msg.textContent = "密码不对哦~ 再试试~♡";
+        msg.style.color = "var(--text-dim)";
+      }
+    });
+  }
+  // 兼容 View Transitions 切页（每次进入本页都会重新绑定解锁表单~♡）
+  document.addEventListener("astro:page-load", bindUnlock);
+</script>
